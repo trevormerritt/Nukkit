@@ -1,6 +1,7 @@
 package cn.nukkit.block;
 
 import cn.nukkit.item.Item;
+import cn.nukkit.item.ItemBlock;
 import cn.nukkit.math.BlockFace;
 
 /**
@@ -43,7 +44,7 @@ public class BlockPistonHead extends BlockTransparentMeta {
 
     @Override
     public boolean onBreak(Item item) {
-        this.level.setBlock(this, new BlockAir(), true, true);
+        this.level.setBlock(this, Block.get(BlockID.AIR), true, true);
         Block piston = getSide(getFacing().getOpposite());
 
         if (piston instanceof BlockPistonBase && ((BlockPistonBase) piston).getFacing() == this.getFacing()) {
@@ -59,5 +60,10 @@ public class BlockPistonHead extends BlockTransparentMeta {
     @Override
     public boolean canBePushed() {
         return false;
+    }
+
+    @Override
+    public Item toItem() {
+        return new ItemBlock(Block.get(BlockID.AIR));
     }
 }

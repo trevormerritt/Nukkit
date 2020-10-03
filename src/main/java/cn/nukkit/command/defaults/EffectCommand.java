@@ -3,6 +3,7 @@ package cn.nukkit.command.defaults;
 import cn.nukkit.Player;
 import cn.nukkit.command.Command;
 import cn.nukkit.command.CommandSender;
+import cn.nukkit.command.data.CommandParamType;
 import cn.nukkit.command.data.CommandParameter;
 import cn.nukkit.lang.TranslationContainer;
 import cn.nukkit.potion.Effect;
@@ -20,14 +21,14 @@ public class EffectCommand extends Command {
         this.setPermission("nukkit.command.effect");
         this.commandParameters.clear();
         this.commandParameters.put("default", new CommandParameter[]{
-                new CommandParameter("player", CommandParameter.ARG_TYPE_TARGET, false),
-                new CommandParameter("effect", CommandParameter.ARG_TYPE_STRING, false), //Do not use Enum here because of buggy behavior
-                new CommandParameter("seconds", CommandParameter.ARG_TYPE_INT, true),
+                new CommandParameter("player", CommandParamType.TARGET, false),
+                new CommandParameter("effect", CommandParamType.STRING, false), //Do not use Enum here because of buggy behavior
+                new CommandParameter("seconds", CommandParamType.INT, true),
                 new CommandParameter("amplifier", true),
-                new CommandParameter("hideParticle", CommandParameter.ARG_TYPE_BOOL, true)
+                new CommandParameter("hideParticle", true, new String[]{"true", "false"})
         });
         this.commandParameters.put("clear", new CommandParameter[]{
-                new CommandParameter("player", CommandParameter.ARG_TYPE_TARGET, false),
+                new CommandParameter("player", CommandParamType.TARGET, false),
                 new CommandParameter("clear", new String[]{"clear"})
         });
     }
@@ -68,7 +69,7 @@ public class EffectCommand extends Command {
         int amplification = 0;
         if (args.length >= 3) {
             try {
-                duration = Integer.valueOf(args[2]);
+                duration = Integer.parseInt(args[2]);
             } catch (NumberFormatException a) {
                 sender.sendMessage(new TranslationContainer("commands.generic.usage", this.usageMessage));
                 return true;
@@ -81,7 +82,7 @@ public class EffectCommand extends Command {
         }
         if (args.length >= 4) {
             try {
-                amplification = Integer.valueOf(args[3]);
+                amplification = Integer.parseInt(args[3]);
             } catch (NumberFormatException a) {
                 sender.sendMessage(new TranslationContainer("commands.generic.usage", this.usageMessage));
                 return true;
@@ -98,16 +99,16 @@ public class EffectCommand extends Command {
                 if (player.getEffects().size() == 0) {
                     sender.sendMessage(new TranslationContainer("commands.effect.failure.notActive.all", player.getDisplayName()));
                 } else {
-                    sender.sendMessage(new TranslationContainer("commands.effect.failure.notActive", new String[]{effect.getName(), player.getDisplayName()}));
+                    sender.sendMessage(new TranslationContainer("commands.effect.failure.notActive", effect.getName(), player.getDisplayName()));
                 }
                 return true;
             }
             player.removeEffect(effect.getId());
-            sender.sendMessage(new TranslationContainer("commands.effect.success.removed", new String[]{effect.getName(), player.getDisplayName()}));
+            sender.sendMessage(new TranslationContainer("commands.effect.success.removed", effect.getName(), player.getDisplayName()));
         } else {
             effect.setDuration(duration).setAmplifier(amplification);
             player.addEffect(effect);
-            Command.broadcastCommandMessage(sender, new TranslationContainer("%commands.effect.success", new String[]{effect.getName(), String.valueOf(effect.getId()), String.valueOf(effect.getAmplifier()), player.getDisplayName(), String.valueOf(effect.getDuration() / 20)}));
+            Command.broadcastCommandMessage(sender, new TranslationContainer("%commands.effect.success", effect.getName(), String.valueOf(effect.getAmplifier()), player.getDisplayName(), String.valueOf(effect.getDuration() / 20)));
         }
         return true;
     }

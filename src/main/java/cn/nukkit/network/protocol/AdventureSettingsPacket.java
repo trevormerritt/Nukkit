@@ -1,10 +1,12 @@
 package cn.nukkit.network.protocol;
 
 import cn.nukkit.Player;
+import lombok.ToString;
 
 /**
  * @author Nukkit Project Team
  */
+@ToString
 public class AdventureSettingsPacket extends DataPacket {
 
     public static final byte NETWORK_ID = ProtocolInfo.ADVENTURE_SETTINGS_PACKET;
@@ -42,7 +44,7 @@ public class AdventureSettingsPacket extends DataPacket {
 
     public long commandPermission = PERMISSION_NORMAL;
 
-    public long flags2 = -1;
+    public long flags2 = 0;
 
     public long playerPermission = Player.PERMISSION_MEMBER;
 

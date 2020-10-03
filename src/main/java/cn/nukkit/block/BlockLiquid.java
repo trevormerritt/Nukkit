@@ -2,15 +2,19 @@ package cn.nukkit.block;
 
 import cn.nukkit.entity.Entity;
 import cn.nukkit.event.block.BlockFromToEvent;
+import cn.nukkit.event.block.LiquidFlowEvent;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.ItemBlock;
 import cn.nukkit.level.Level;
-import cn.nukkit.level.Sound;
 import cn.nukkit.level.particle.SmokeParticle;
 import cn.nukkit.math.AxisAlignedBB;
 import cn.nukkit.math.Vector3;
+import cn.nukkit.network.protocol.LevelEventPacket;
+import cn.nukkit.network.protocol.LevelSoundEventPacket;
 import it.unimi.dsi.fastutil.longs.Long2ByteMap;
 import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
 
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -175,10 +179,12 @@ public abstract class BlockLiquid extends BlockTransparentMeta {
 
     @Override
     public void addVelocityToEntity(Entity entity, Vector3 vector) {
-        Vector3 flow = this.getFlowVector();
-        vector.x += flow.x;
-        vector.y += flow.y;
-        vector.z += flow.z;
+        if (entity.canBeMovedByCurrents()) {
+            Vector3 flow = this.getFlowVector();
+            vector.x += flow.x;
+            vector.y += flow.y;
+            vector.z += flow.z;
+        }
     }
 
     public int getFlowDecayPerBlock() {
@@ -222,13 +228,14 @@ public abstract class BlockLiquid extends BlockTransparentMeta {
                     boolean decayed = decay < 0;
                     Block to;
                     if (decayed) {
-                        to = new BlockAir();
+                        to = Block.get(BlockID.AIR);
                     } else {
                         to = getBlock(decay);
                     }
                     BlockFromToEvent event = new BlockFromToEvent(this, to);
+                    level.getServer().getPluginManager().callEvent(event);
                     if (!event.isCancelled()) {
-                        this.level.setBlock(this, to, true, true);
+                        this.level.setBlock(this, event.getTo(), true, true);
                         if (!decayed) {
                             this.level.scheduleUpdate(this, this.tickRate());
                         }
@@ -267,14 +274,14 @@ public abstract class BlockLiquid extends BlockTransparentMeta {
         return 0;
     }
 
-    protected void flowIntoBlock(Block block, int newFlowDecay){
-        if(this.canFlowInto(block) && !(block instanceof BlockLiquid)){
-            if(block.getId() > 0){
-                this.level.useBreakOn(block);
-            }
-            Block to = getBlock(newFlowDecay);
-            BlockFromToEvent event = new BlockFromToEvent(block, to);
+    protected void flowIntoBlock(Block block, int newFlowDecay) {
+        if (this.canFlowInto(block) && !(block instanceof BlockLiquid)) {
+            LiquidFlowEvent event = new LiquidFlowEvent(block, this, newFlowDecay);
+            level.getServer().getPluginManager().callEvent(event);
             if (!event.isCancelled()) {
+                if (block.getId() > 0) {
+                    this.level.useBreakOn(block);
+                }
                 this.level.setBlock(block, getBlock(newFlowDecay), true, true);
                 this.level.scheduleUpdate(block, this.tickRate());
             }
@@ -299,12 +306,12 @@ public abstract class BlockLiquid extends BlockTransparentMeta {
             } else if (j == 3) {
                 ++z;
             }
-            long hash = Level.blockHash((int) x, (int) y, (int) z);
+            long hash = Level.blockHash(x, y, z);
             if (!this.flowCostVisited.containsKey(hash)) {
-                Block blockSide = this.level.getBlock((int) x, (int) y, (int) z);
+                Block blockSide = this.level.getBlock(x, y, z);
                 if (!this.canFlowInto(blockSide)) {
                     this.flowCostVisited.put(hash, BLOCKED);
-                } else if (this.level.getBlock((int) x, (int) y - 1, (int) z).canBeFlowedInto()) {
+                } else if (this.level.getBlock(x, y - 1, z).canBeFlowedInto()) {
                     this.flowCostVisited.put(hash, CAN_FLOW_DOWN);
                 } else {
                     this.flowCostVisited.put(hash, CAN_FLOW);
@@ -319,7 +326,7 @@ public abstract class BlockLiquid extends BlockTransparentMeta {
             if (accumulatedCost >= maxCost) {
                 continue;
             }
-            int realCost = this.calculateFlowCost((int) x, (int) y, (int) z, accumulatedCost + 1, maxCost, originOpposite, j ^ 0x01);
+            int realCost = this.calculateFlowCost(x, y, z, accumulatedCost + 1, maxCost, originOpposite, j ^ 0x01);
             if (realCost < cost) {
                 cost = realCost;
             }
@@ -361,7 +368,6 @@ public abstract class BlockLiquid extends BlockTransparentMeta {
             Block block = this.level.getBlock(x, y, z);
             if (!this.canFlowInto(block)) {
                 this.flowCostVisited.put(Level.blockHash(x, y, z), BLOCKED);
-                continue;
             } else if (this.level.getBlock(x, y - 1, z).canBeFlowedInto()) {
                 this.flowCostVisited.put(Level.blockHash(x, y, z), CAN_FLOW_DOWN);
                 flowCost[j] = maxCost = 0;
@@ -402,7 +408,8 @@ public abstract class BlockLiquid extends BlockTransparentMeta {
     }
 
     protected void triggerLavaMixEffects(Vector3 pos) {
-        this.getLevel().addSound(pos.add(0.5, 0.5, 0.5), Sound.RANDOM_FIZZ, 1, 2.6F + (ThreadLocalRandom.current().nextFloat() - ThreadLocalRandom.current().nextFloat()) * 0.8F);
+        Random random = ThreadLocalRandom.current();
+        this.getLevel().addLevelEvent(pos.add(0.5, 0.5, 0.5), LevelEventPacket.EVENT_SOUND_FIZZ, (int) ((random.nextFloat() - random.nextFloat()) * 800) + 2600);
 
         for (int i = 0; i < 8; ++i) {
             this.getLevel().addParticle(new SmokeParticle(pos.add(Math.random(), 1.2, Math.random())));
@@ -427,12 +434,17 @@ public abstract class BlockLiquid extends BlockTransparentMeta {
         if (event.isCancelled()) {
             return false;
         }
-        this.level.setBlock(this, result, true, true);
-        this.level.addSound(this.add(0.5, 0.5, 0.5), Sound.RANDOM_FIZZ);
+        this.level.setBlock(this, event.getTo(), true, true);
+        this.getLevel().addLevelSoundEvent(this.add(0.5, 0.5, 0.5), LevelSoundEventPacket.SOUND_FIZZ);
         return true;
     }
 
     protected boolean canFlowInto(Block block) {
         return block.canBeFlowedInto() && !(block instanceof BlockLiquid && block.getDamage() == 0);
+    }
+
+    @Override
+    public Item toItem() {
+        return new ItemBlock(Block.get(BlockID.AIR));
     }
 }

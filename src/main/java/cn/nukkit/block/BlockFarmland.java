@@ -61,7 +61,7 @@ public class BlockFarmland extends BlockTransparentMeta {
             }
 
             if (this.level.getBlock(v.setComponents(x, this.y + 1, z)).isSolid()) {
-                this.level.setBlock(this, new BlockDirt(), false, true);
+                this.level.setBlock(this, Block.get(BlockID.DIRT), false, true);
 
                 return Level.BLOCK_UPDATE_RANDOM;
             }
@@ -113,10 +113,8 @@ public class BlockFarmland extends BlockTransparentMeta {
     }
 
     @Override
-    public Item[] getDrops(Item item) {
-        return new Item[]{
-                new ItemBlock(new BlockDirt())
-        };
+    public Item toItem() {
+        return new ItemBlock(Block.get(BlockID.DIRT));
     }
 
     @Override

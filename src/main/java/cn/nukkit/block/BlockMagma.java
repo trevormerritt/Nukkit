@@ -1,5 +1,6 @@
 package cn.nukkit.block;
 
+import cn.nukkit.Player;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.event.entity.EntityDamageByBlockEvent;
 import cn.nukkit.event.entity.EntityDamageEvent;
@@ -58,13 +59,20 @@ public class BlockMagma extends BlockSolid {
     @Override
     public void onEntityCollide(Entity entity) {
         if (!entity.hasEffect(Effect.FIRE_RESISTANCE)) {
-            entity.attack(new EntityDamageByBlockEvent(this, entity, EntityDamageEvent.DamageCause.LAVA, 1));
+            if (entity instanceof Player) {
+                Player p = (Player) entity;
+                if (!p.isCreative() && !p.isSpectator() && !p.isSneaking()) {
+                    entity.attack(new EntityDamageByBlockEvent(this, entity, EntityDamageEvent.DamageCause.LAVA, 1));
+                }
+            } else {
+                entity.attack(new EntityDamageByBlockEvent(this, entity, EntityDamageEvent.DamageCause.LAVA, 1));
+            }
         }
     }
 
     @Override
     public BlockColor getColor() {
-        return BlockColor.BROWN_BLOCK_COLOR;
+        return BlockColor.NETHERRACK_BLOCK_COLOR;
     }
 
     @Override

@@ -175,8 +175,12 @@ public class PluginManager {
 
                             for (String version : description.getCompatibleAPIs()) {
 
-                                //Check the format: majorVersion.minorVersion.patch
-                                if (!Pattern.matches("[0-9]\\.[0-9]\\.[0-9]", version)) {
+                                try {
+                                    //Check the format: majorVersion.minorVersion.patch
+                                    if (!Pattern.matches("^[0-9]+\\.[0-9]+\\.[0-9]+$", version)) {
+                                        throw new IllegalArgumentException();
+                                    }
+                                } catch (NullPointerException | IllegalArgumentException e) {
                                     this.server.getLogger().error(this.server.getLanguage().translateString("nukkit.plugin.loadError", new String[]{name, "Wrong API format"}));
                                     continue;
                                 }
@@ -190,7 +194,7 @@ public class PluginManager {
                                 }
 
                                 //If the plugin requires new API features, being backwards compatible
-                                if (Integer.valueOf(versionArray[1]) > Integer.valueOf(apiVersion[1])) {
+                                if (Integer.parseInt(versionArray[1]) > Integer.parseInt(apiVersion[1])) {
                                     continue;
                                 }
 
@@ -251,11 +255,8 @@ public class PluginManager {
                     }
 
                     if (softDependencies.containsKey(name)) {
-                        for (String dependency : new ArrayList<>(softDependencies.get(name))) {
-                            if (loadedPlugins.containsKey(dependency) || this.getPlugin(dependency) != null) {
-                                softDependencies.get(name).remove(dependency);
-                            }
-                        }
+                        softDependencies.get(name).removeIf(dependency ->
+                                loadedPlugins.containsKey(dependency) || this.getPlugin(dependency) != null);
 
                         if (softDependencies.get(name).isEmpty()) {
                             softDependencies.remove(name);
@@ -476,7 +477,7 @@ public class PluginManager {
                             aliasList.add(alias);
                         }
 
-                        newCmd.setAliases(aliasList.stream().toArray(String[]::new));
+                        newCmd.setAliases(aliasList.toArray(new String[0]));
                     }
                 }
 
@@ -587,7 +588,7 @@ public class PluginManager {
             for (Class<?> clazz = eventClass; Event.class.isAssignableFrom(clazz); clazz = clazz.getSuperclass()) {
                 // This loop checks for extending deprecated events
                 if (clazz.getAnnotation(Deprecated.class) != null) {
-                    if (Boolean.valueOf(String.valueOf(this.server.getConfig("settings.deprecated-verbpse", true)))) {
+                    if (Boolean.parseBoolean(String.valueOf(this.server.getConfig("settings.deprecated-verbpse", true)))) {
                         this.server.getLogger().warning(this.server.getLanguage().translateString("nukkit.plugin.deprecatedEvent", plugin.getName(), clazz.getName(), listener.getClass().getName() + "." + method.getName() + "()"));
                     }
                     break;
@@ -619,6 +620,8 @@ public class PluginManager {
             Method method = getRegistrationClass(type).getDeclaredMethod("getHandlers");
             method.setAccessible(true);
             return (HandlerList) method.invoke(null);
+        } catch (NullPointerException e) {
+            throw new IllegalArgumentException("getHandlers method in " + type.getName() + " was not static!");
         } catch (Exception e) {
             throw new IllegalAccessException(Utils.getExceptionMessage(e));
         }

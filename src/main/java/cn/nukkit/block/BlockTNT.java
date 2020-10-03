@@ -2,15 +2,14 @@ package cn.nukkit.block;
 
 import cn.nukkit.Player;
 import cn.nukkit.entity.Entity;
-import cn.nukkit.entity.item.EntityPrimedTNT;
 import cn.nukkit.item.Item;
 import cn.nukkit.level.Level;
-import cn.nukkit.level.Sound;
 import cn.nukkit.math.NukkitRandom;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.DoubleTag;
 import cn.nukkit.nbt.tag.FloatTag;
 import cn.nukkit.nbt.tag.ListTag;
+import cn.nukkit.network.protocol.LevelEventPacket;
 import cn.nukkit.utils.BlockColor;
 
 /**
@@ -66,7 +65,7 @@ public class BlockTNT extends BlockSolid {
     }
 
     public void prime(int fuse, Entity source) {
-        this.getLevel().setBlock(this, new BlockAir(), true);
+        this.getLevel().setBlock(this, Block.get(BlockID.AIR), true);
         double mot = (new NukkitRandom()).nextSignedFloat() * Math.PI * 2;
         CompoundTag nbt = new CompoundTag()
                 .putList(new ListTag<DoubleTag>("Pos")
@@ -81,17 +80,20 @@ public class BlockTNT extends BlockSolid {
                         .add(new FloatTag("", 0))
                         .add(new FloatTag("", 0)))
                 .putShort("Fuse", fuse);
-        Entity tnt = new EntityPrimedTNT(
+        Entity tnt = Entity.createEntity("PrimedTnt",
                 this.getLevel().getChunk(this.getFloorX() >> 4, this.getFloorZ() >> 4),
                 nbt, source
         );
+        if(tnt == null) {
+            return;
+        }
         tnt.spawnToAll();
-        this.level.addSound(this, Sound.RANDOM_FUSE);
+        this.getLevel().addLevelEvent(this, LevelEventPacket.EVENT_SOUND_TNT);
     }
 
     @Override
     public int onUpdate(int type) {
-        if ((type == Level.BLOCK_UPDATE_NORMAL || type == Level.BLOCK_UPDATE_REDSTONE) && this.level.isBlockPowered(this)) {
+        if ((type == Level.BLOCK_UPDATE_NORMAL || type == Level.BLOCK_UPDATE_REDSTONE) && this.level.isBlockPowered(this.getLocation())) {
             this.prime();
         }
 
@@ -102,6 +104,11 @@ public class BlockTNT extends BlockSolid {
     public boolean onActivate(Item item, Player player) {
         if (item.getId() == Item.FLINT_STEEL) {
             item.useOn(this);
+            this.prime(80, player);
+            return true;
+        }
+        if (item.getId() == Item.FIRE_CHARGE) {
+            if (!player.isCreative()) player.getInventory().removeItem(Item.get(Item.FIRE_CHARGE, 0, 1));
             this.prime(80, player);
             return true;
         }

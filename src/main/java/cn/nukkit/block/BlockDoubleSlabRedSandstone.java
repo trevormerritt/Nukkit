@@ -1,7 +1,9 @@
 package cn.nukkit.block;
 
 import cn.nukkit.item.Item;
+import cn.nukkit.item.ItemBlock;
 import cn.nukkit.item.ItemTool;
+import cn.nukkit.utils.BlockColor;
 
 /**
  * Created by CreeperFace on 26. 11. 2016.
@@ -53,6 +55,11 @@ public class BlockDoubleSlabRedSandstone extends BlockSolidMeta {
     }
 
     @Override
+    public Item toItem() {
+        return new ItemBlock(Block.get(BlockID.RED_SANDSTONE_SLAB), this.getDamage() & 0x07);
+    }
+
+    @Override
     public Item[] getDrops(Item item) {
         if (item.isPickaxe() && item.getTier() >= ItemTool.TIER_WOODEN) {
             return new Item[]{
@@ -66,5 +73,17 @@ public class BlockDoubleSlabRedSandstone extends BlockSolidMeta {
     @Override
     public boolean canHarvestWithHand() {
         return false;
+    }
+
+    @Override
+    public BlockColor getColor() {
+        switch (this.getDamage() & 0x07) {
+            case 0:
+                return BlockColor.ORANGE_BLOCK_COLOR;
+            case 1:
+                return BlockColor.PURPLE_BLOCK_COLOR;
+            default:
+                return BlockColor.STONE_BLOCK_COLOR;
+        }
     }
 }

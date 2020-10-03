@@ -1,38 +1,51 @@
 package cn.nukkit.network.protocol;
 
 import cn.nukkit.command.data.*;
+import cn.nukkit.utils.BinaryStream;
+import lombok.ToString;
 
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.function.ObjIntConsumer;
 
 /**
  * author: MagicDroidX
  * Nukkit Project
  */
+@ToString
 public class AvailableCommandsPacket extends DataPacket {
 
     public static final byte NETWORK_ID = ProtocolInfo.AVAILABLE_COMMANDS_PACKET;
-    public Map<String, CommandDataVersions> commands;
+
+    private static final ObjIntConsumer<BinaryStream> WRITE_BYTE = (s, v) -> s.putByte((byte) v);
+    private static final ObjIntConsumer<BinaryStream> WRITE_SHORT = BinaryStream::putLShort;
+    private static final ObjIntConsumer<BinaryStream> WRITE_INT = BinaryStream::putLInt;
 
     public static final int ARG_FLAG_VALID = 0x100000;
-
-    public static final int ARG_TYPE_INT = 0x01;
-    public static final int ARG_TYPE_FLOAT = 0x02;
-    public static final int ARG_TYPE_VALUE = 0x03;
-    public static final int ARG_TYPE_WILDCARD_INT = 0x04;
-    public static final int ARG_TYPE_TARGET = 0x05;
-    public static final int ARG_TYPE_WILDCARD_TARGET = 0x06;
-
-    public static final int ARG_TYPE_STRING = 0x0f;
-    public static final int ARG_TYPE_POSITION = 0x10;
-
-    public static final int ARG_TYPE_MESSAGE = 0x13;
-    public static final int ARG_TYPE_RAWTEXT = 0x15;
-    public static final int ARG_TYPE_JSON = 0x18;
-    public static final int ARG_TYPE_COMMAND = 0x1f;
-
     public static final int ARG_FLAG_ENUM = 0x200000;
     public static final int ARG_FLAG_POSTFIX = 0x1000000;
+    public static final int ARG_FLAG_SOFT_ENUM = 0x4000000;
+
+    public static final int ARG_TYPE_INT = 1;
+    public static final int ARG_TYPE_FLOAT = 2;
+    public static final int ARG_TYPE_VALUE = 3;
+    public static final int ARG_TYPE_WILDCARD_INT = 4;
+    public static final int ARG_TYPE_OPERATOR = 5;
+    public static final int ARG_TYPE_TARGET = 6;
+    public static final int ARG_TYPE_WILDCARD_TARGET = 7;
+
+    public static final int ARG_TYPE_FILE_PATH = 14;
+
+    public static final int ARG_TYPE_STRING = 29;
+    public static final int ARG_TYPE_BLOCK_POSITION = 37;
+    public static final int ARG_TYPE_POSITION = 38;
+
+    public static final int ARG_TYPE_MESSAGE = 41;
+    public static final int ARG_TYPE_RAWTEXT = 43;
+    public static final int ARG_TYPE_JSON = 47;
+    public static final int ARG_TYPE_COMMAND = 54;
+
+    public Map<String, CommandDataVersions> commands;
+    public final Map<String, List<String>> softEnums = new HashMap<>();
 
     @Override
     public byte pid() {
@@ -41,153 +54,58 @@ public class AvailableCommandsPacket extends DataPacket {
 
     @Override
     public void decode() {
-        commands = new HashMap<>();
 
-        List<String> enumValues = new ArrayList<>();
-        List<String> postFixes = new ArrayList<>();
-        List<CommandEnum> enums = new ArrayList<>();
-
-        int len = (int) getUnsignedVarInt();
-        while (len-- > 0) {
-            enumValues.add(getString());
-        }
-
-        len = (int) getUnsignedVarInt();
-        while (len-- > 0) {
-            postFixes.add(getString());
-        }
-
-        len = (int) getUnsignedVarInt();
-        while (len-- > 0) {
-            String enumName = getString();
-            int enumLength = (int) getUnsignedVarInt();
-
-            List<String> values = new ArrayList<>();
-
-            while (enumLength-- > 0) {
-                int index;
-
-                if (enums.size() < 256) {
-                    index = getByte();
-                } else if (enums.size() < 65536) {
-                    index = getShort();
-                } else {
-                    index = getLInt();
-                }
-
-                String enumValue;
-
-                if (index < 0 || (enumValue = enumValues.get(index)) == null) {
-                    throw new IllegalStateException("Enum value not found for index " + index);
-                }
-
-                values.add(enumValue);
-            }
-
-            enums.add(new CommandEnum(enumName, values));
-        }
-
-        len = (int) getUnsignedVarInt();
-
-        while (len-- > 0) {
-            String name = getString();
-            String description = getString();
-            int flags = getByte();
-            int permission = getByte();
-            CommandEnum alias = null;
-
-            int aliasIndex = getLInt();
-            if (aliasIndex >= 0) {
-                alias = enums.get(aliasIndex);
-            }
-
-            Map<String, CommandOverload> overloads = new HashMap<>();
-
-            int length = (int) getUnsignedVarInt();
-            while (length-- > 0) {
-                CommandOverload overload = new CommandOverload();
-
-                int paramLen = (int) getUnsignedVarInt();
-
-                overload.input.parameters = new CommandParameter[paramLen];
-                for (int i = 0; i < paramLen; i++) {
-                    String paramName = getString();
-                    int type = getLInt();
-                    boolean optional = getBoolean();
-
-                    CommandParameter parameter = new CommandParameter(paramName, optional);
-
-                    if ((type & ARG_FLAG_ENUM) != 0) {
-                        int index = type & 0xffff;
-                        parameter.enumData = enums.get(index);
-                    } else if ((type & ARG_FLAG_VALID) == 0) {
-                        parameter.postFix = postFixes.get(type & 0xffff);
-                    }
-
-                    overload.input.parameters[i] = parameter;
-                }
-
-                overloads.put(Integer.toString(length), overload);
-            }
-
-            CommandData data = new CommandData();
-            data.aliases = alias;
-            data.overloads = overloads;
-            data.description = description;
-            data.flags = flags;
-            data.permission = permission;
-
-            CommandDataVersions versions = new CommandDataVersions();
-            versions.versions.add(data);
-
-            this.commands.put(name, versions);
-        }
     }
 
     @Override
     public void encode() {
         this.reset();
 
-        LinkedHashSet<String> enumValues = new LinkedHashSet<>();
-        LinkedHashSet<String> postFixes = new LinkedHashSet<>();
-        LinkedHashSet<CommandEnum> enums = new LinkedHashSet<>();
+        LinkedHashSet<String> enumValuesSet = new LinkedHashSet<>();
+        LinkedHashSet<String> postFixesSet = new LinkedHashSet<>();
+        LinkedHashSet<CommandEnum> enumsSet = new LinkedHashSet<>();
 
         commands.forEach((name, data) -> {
             CommandData cmdData = data.versions.get(0);
 
             if (cmdData.aliases != null) {
-                enums.add(new CommandEnum(cmdData.aliases.getName(), cmdData.aliases.getValues()));
+                enumsSet.add(cmdData.aliases);
 
-                enumValues.addAll(cmdData.aliases.getValues());
+                enumValuesSet.addAll(cmdData.aliases.getValues());
             }
 
             for (CommandOverload overload : cmdData.overloads.values()) {
                 for (CommandParameter parameter : overload.input.parameters) {
                     if (parameter.enumData != null) {
-                        enums.add(new CommandEnum(parameter.enumData.getName(), parameter.enumData.getValues()));
+                        enumsSet.add(parameter.enumData);
 
-                        enumValues.addAll(parameter.enumData.getValues());
+                        enumValuesSet.addAll(parameter.enumData.getValues());
                     }
 
                     if (parameter.postFix != null) {
-                        postFixes.add(parameter.postFix);
+                        postFixesSet.add(parameter.postFix);
                     }
                 }
             }
         });
 
-        List<String> enumIndexes = new ArrayList<>(enumValues);
-        List<String> enumDataIndexes = enums.stream().map(CommandEnum::getName).collect(Collectors.toList());
-        List<String> fixesIndexes = new ArrayList<>(postFixes);
+        List<String> enumValues = new ArrayList<>(enumValuesSet);
+        List<CommandEnum> enums = new ArrayList<>(enumsSet);
+        List<String> postFixes = new ArrayList<>(postFixesSet);
 
         this.putUnsignedVarInt(enumValues.size());
-        for (String enumValue : enumValues) {
-            putString(enumValue);
-        }
+        enumValues.forEach(this::putString);
 
         this.putUnsignedVarInt(postFixes.size());
-        for (String postFix : postFixes) {
-            putString(postFix);
+        postFixes.forEach(this::putString);
+
+        ObjIntConsumer<BinaryStream> indexWriter;
+        if (enumValues.size() < 256) {
+            indexWriter = WRITE_BYTE;
+        } else if (enumValues.size() < 65536) {
+            indexWriter = WRITE_SHORT;
+        } else {
+            indexWriter = WRITE_INT;
         }
 
         this.putUnsignedVarInt(enums.size());
@@ -198,19 +116,13 @@ public class AvailableCommandsPacket extends DataPacket {
             putUnsignedVarInt(values.size());
 
             for (String val : values) {
-                int i = enumIndexes.indexOf(val);
+                int i = enumValues.indexOf(val);
 
                 if (i < 0) {
                     throw new IllegalStateException("Enum value '" + val + "' not found");
                 }
 
-                if (enums.size() < 256) {
-                    putByte((byte) i);
-                } else if (enums.size() < 65536) {
-                    putShort(i);
-                } else {
-                    putLInt(i);
-                }
+                indexWriter.accept(this, i);
             }
         });
 
@@ -224,7 +136,7 @@ public class AvailableCommandsPacket extends DataPacket {
             putByte((byte) data.flags);
             putByte((byte) data.permission);
 
-            putLInt(data.aliases == null ? -1 : enumDataIndexes.indexOf(data.aliases.getName()));
+            putLInt(data.aliases == null ? -1 : enums.indexOf(data.aliases));
 
             putUnsignedVarInt(data.overloads.size());
             for (CommandOverload overload : data.overloads.values()) {
@@ -233,25 +145,37 @@ public class AvailableCommandsPacket extends DataPacket {
                 for (CommandParameter parameter : overload.input.parameters) {
                     putString(parameter.name);
 
-                    int type;
-                    if (parameter.enumData != null) {
-                        type = ARG_FLAG_ENUM | ARG_FLAG_VALID | enumDataIndexes.indexOf(parameter.enumData.getName());
-                    } else if (parameter.postFix != null) {
-                        int i = fixesIndexes.indexOf(parameter.postFix);
+                    int type = 0;
+                    if (parameter.postFix != null) {
+                        int i = postFixes.indexOf(parameter.postFix);
                         if (i < 0) {
                             throw new IllegalStateException("Postfix '" + parameter.postFix + "' isn't in postfix array");
                         }
-
-
-                        type = (ARG_FLAG_VALID | parameter.type.getId()) << 24 | i;
+                        type = ARG_FLAG_POSTFIX | i;
                     } else {
-                        type = parameter.type.getId() | ARG_FLAG_VALID;
+                        type |= ARG_FLAG_VALID;
+                        if (parameter.enumData != null) {
+                            type |= ARG_FLAG_ENUM | enums.indexOf(parameter.enumData);
+                        } else {
+                            type |= parameter.type.getId();
+                        }
                     }
 
                     putLInt(type);
                     putBoolean(parameter.optional);
+                    putByte(parameter.options); // TODO: 19/03/2019 Bit flags. Only first bit is used for GameRules.
                 }
             }
         });
+
+        this.putUnsignedVarInt(softEnums.size());
+
+        softEnums.forEach((name, values) -> {
+            this.putString(name);
+            this.putUnsignedVarInt(values.size());
+            values.forEach(this::putString);
+        });
+
+        this.putUnsignedVarInt(0);
     }
 }

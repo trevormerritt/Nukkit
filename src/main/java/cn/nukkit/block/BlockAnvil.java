@@ -3,15 +3,31 @@ package cn.nukkit.block;
 import cn.nukkit.Player;
 import cn.nukkit.inventory.AnvilInventory;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.ItemBlock;
 import cn.nukkit.item.ItemTool;
-import cn.nukkit.level.Sound;
 import cn.nukkit.math.BlockFace;
 import cn.nukkit.utils.BlockColor;
+import cn.nukkit.utils.Faceable;
 
 /**
  * Created by Pub4Game on 27.12.2015.
  */
-public class BlockAnvil extends BlockFallable {
+public class BlockAnvil extends BlockFallable implements Faceable {
+
+    private static final String[] NAMES = new String[]{
+            "Anvil",
+            "Anvil",
+            "Anvil",
+            "Anvil",
+            "Slighty Damaged Anvil",
+            "Slighty Damaged Anvil",
+            "Slighty Damaged Anvil",
+            "Slighty Damaged Anvil",
+            "Very Damaged Anvil",
+            "Very Damaged Anvil",
+            "Very Damaged Anvil",
+            "Very Damaged Anvil"
+    };
 
     private int meta;
 
@@ -70,21 +86,7 @@ public class BlockAnvil extends BlockFallable {
 
     @Override
     public String getName() {
-        String[] names = new String[]{
-                "Anvil",
-                "Anvil",
-                "Anvil",
-                "Anvil",
-                "Slighty Damaged Anvil",
-                "Slighty Damaged Anvil",
-                "Slighty Damaged Anvil",
-                "Slighty Damaged Anvil",
-                "Very Damaged Anvil",
-                "Very Damaged Anvil",
-                "Very Damaged Anvil",
-                "Very Damaged Anvil"
-        };
-        return names[this.getDamage()];
+        return NAMES[this.getDamage() > 11 ? 0 : this.getDamage()];
     }
 
     @Override
@@ -99,7 +101,6 @@ public class BlockAnvil extends BlockFallable {
                 this.setDamage(this.getDamage() | 0x08);
             }
             this.getLevel().setBlock(block, this, true);
-            this.getLevel().addSound(this, Sound.RANDOM_ANVIL_LAND, 1, 0.8F);
             return true;
         }
         return false;
@@ -108,22 +109,29 @@ public class BlockAnvil extends BlockFallable {
     @Override
     public boolean onActivate(Item item, Player player) {
         if (player != null) {
-            player.addWindow(new AnvilInventory(this), Player.ANVIL_WINDOW_ID);
+            player.addWindow(new AnvilInventory(player.getUIInventory(), this), Player.ANVIL_WINDOW_ID);
         }
         return true;
     }
 
     @Override
-    public Item[] getDrops(Item item) {
+    public Item toItem() {
         int damage = this.getDamage();
-        if (item.isPickaxe() && item.getTier() >= ItemTool.TIER_WOODEN) {
-            Item drop = this.toItem();
+        if (damage >= 4 && damage <= 7) {
+            return new ItemBlock(this, this.getDamage() & 0x04);
+        } else if (damage >= 8 && damage <= 11) {
+            return new ItemBlock(this, this.getDamage() & 0x08);
+        } else {
+            return new ItemBlock(this);
+        }
+    }
 
-            if (damage >= 4 && damage <= 7) { //Slightly Anvil
-                drop.setDamage(drop.getDamage() & 0x04);
-            } else if (damage >= 8 && damage <= 11) { //Very Damaged Anvil
-                drop.setDamage(drop.getDamage() & 0x08);
-            }
+    @Override
+    public Item[] getDrops(Item item) {
+        if (item.isPickaxe() && item.getTier() >= ItemTool.TIER_WOODEN) {
+            return new Item[]{
+                    this.toItem()
+            };
         }
         return new Item[0];
     }
@@ -136,5 +144,10 @@ public class BlockAnvil extends BlockFallable {
     @Override
     public boolean canHarvestWithHand() {
         return false;
+    }
+
+    @Override
+    public BlockFace getBlockFace() {
+        return BlockFace.fromHorizontalIndex(this.getDamage() & 0x7);
     }
 }

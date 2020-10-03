@@ -1,13 +1,15 @@
 package cn.nukkit.network.protocol;
 
-
 import cn.nukkit.item.Item;
+import cn.nukkit.utils.BinaryStream;
+import lombok.ToString;
 
 import java.util.UUID;
 
 /**
  * @author Nukkit Project Team
  */
+@ToString
 public class CraftingEventPacket extends DataPacket {
 
     public static final byte NETWORK_ID = ProtocolInfo.CRAFTING_EVENT_PACKET;
@@ -29,20 +31,11 @@ public class CraftingEventPacket extends DataPacket {
     @Override
     public void decode() {
         this.windowId = this.getByte();
-        this.type = this.getVarInt();
+        this.type = (int) this.getUnsignedVarInt();
         this.id = this.getUUID();
 
-        int inputSize = (int) this.getUnsignedVarInt();
-        this.input = new Item[inputSize];
-        for (int i = 0; i < inputSize && i < 128; ++i) {
-            this.input[i] = this.getSlot();
-        }
-
-        int outputSize = (int) this.getUnsignedVarInt();
-        this.output = new Item[outputSize];
-        for (int i = 0; i < outputSize && i < 128; ++i) {
-            this.output[i] = getSlot();
-        }
+        this.input = this.getArray(Item.class, BinaryStream::getSlot);
+        this.output = this.getArray(Item.class, BinaryStream::getSlot);
     }
 
     @Override

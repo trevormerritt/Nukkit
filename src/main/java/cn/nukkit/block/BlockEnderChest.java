@@ -4,17 +4,20 @@ import cn.nukkit.Player;
 import cn.nukkit.blockentity.BlockEntity;
 import cn.nukkit.blockentity.BlockEntityEnderChest;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.ItemBlock;
 import cn.nukkit.item.ItemTool;
 import cn.nukkit.math.BlockFace;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.StringTag;
 import cn.nukkit.nbt.tag.Tag;
 import cn.nukkit.utils.BlockColor;
+import cn.nukkit.utils.Faceable;
+
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public class BlockEnderChest extends BlockTransparentMeta {
+public class BlockEnderChest extends BlockTransparentMeta implements Faceable {
 
     private Set<Player> viewers = new HashSet<>();
 
@@ -109,8 +112,8 @@ public class BlockEnderChest extends BlockTransparentMeta {
             }
         }
 
-        new BlockEntityEnderChest(this.getLevel().getChunk((int) this.x >> 4, (int) this.z >> 4), nbt);
-        return true;
+        BlockEntityEnderChest ender = (BlockEntityEnderChest) BlockEntity.createBlockEntity(BlockEntity.ENDER_CHEST, this.getLevel().getChunk((int) this.x >> 4, (int) this.z >> 4), nbt);
+        return ender != null;
     }
 
     @Override
@@ -131,7 +134,10 @@ public class BlockEnderChest extends BlockTransparentMeta {
                         .putInt("x", (int) this.x)
                         .putInt("y", (int) this.y)
                         .putInt("z", (int) this.z);
-                chest = new BlockEntityEnderChest(this.getLevel().getChunk((int) this.x >> 4, (int) this.z >> 4), nbt);
+                chest = (BlockEntityEnderChest) BlockEntity.createBlockEntity(BlockEntity.ENDER_CHEST, this.getLevel().getChunk((int) this.x >> 4, (int) this.z >> 4), nbt);
+                if (chest == null) {
+                    return false;
+                }
             }
 
             if (chest.namedTag.contains("Lock") && chest.namedTag.get("Lock") instanceof StringTag) {
@@ -175,5 +181,20 @@ public class BlockEnderChest extends BlockTransparentMeta {
     @Override
     public boolean canHarvestWithHand() {
         return false;
+    }
+
+    @Override
+    public boolean canSilkTouch() {
+        return true;
+    }
+
+    @Override
+    public Item toItem() {
+        return new ItemBlock(this, 0);
+    }
+
+    @Override
+    public BlockFace getBlockFace() {
+        return BlockFace.fromHorizontalIndex(this.getDamage() & 0x07);
     }
 }

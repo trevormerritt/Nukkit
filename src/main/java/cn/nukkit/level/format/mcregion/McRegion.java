@@ -12,9 +12,9 @@ import cn.nukkit.level.generator.Generator;
 import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.scheduler.AsyncTask;
-import cn.nukkit.utils.Binary;
 import cn.nukkit.utils.BinaryStream;
 import cn.nukkit.utils.ChunkException;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -75,7 +75,7 @@ public class McRegion extends BaseLevelProvider {
                 .putLong("DayTime", 0)
                 .putInt("GameType", 0)
                 .putString("generatorName", Generator.getGeneratorName(generator))
-                .putString("generatorOptions", options.containsKey("preset") ? options.get("preset") : "")
+                .putString("generatorOptions", options.getOrDefault("preset", ""))
                 .putInt("generatorVersion", 1)
                 .putBoolean("hardcore", false)
                 .putBoolean("initialized", true)
@@ -105,7 +105,24 @@ public class McRegion extends BaseLevelProvider {
 
         long timestamp = chunk.getChanges();
 
-        byte[] tiles = new byte[0];
+        BinaryStream stream = new BinaryStream();
+        stream.putByte((byte) 0); // subchunk version
+
+        stream.put(chunk.getBlockIdArray());
+        stream.put(chunk.getBlockDataArray());
+        stream.put(chunk.getBlockSkyLightArray());
+        stream.put(chunk.getBlockLightArray());
+        stream.put(chunk.getHeightMapArray());
+        stream.put(chunk.getBiomeIdArray());
+
+        Map<Integer, Integer> extra = chunk.getBlockExtraDataArray();
+        stream.putLInt(extra.size());
+        if (!extra.isEmpty()) {
+            for (Integer key : extra.values()) {
+                stream.putLInt(key);
+                stream.putLShort(extra.get(key));
+            }
+        }
 
         if (!chunk.getBlockEntities().isEmpty()) {
             List<CompoundTag> tagList = new ArrayList<>();
@@ -117,40 +134,11 @@ public class McRegion extends BaseLevelProvider {
             }
 
             try {
-                tiles = NBTIO.write(tagList, ByteOrder.LITTLE_ENDIAN, true);
+                stream.put(NBTIO.write(tagList, ByteOrder.LITTLE_ENDIAN));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
-
-        Map<Integer, Integer> extra = chunk.getBlockExtraDataArray();
-        BinaryStream extraData;
-        if (!extra.isEmpty()) {
-            extraData = new BinaryStream();
-            extraData.putLInt(extra.size());
-            for (Map.Entry<Integer, Integer> entry : extra.entrySet()) {
-                extraData.putLInt(entry.getKey());
-                extraData.putLShort(entry.getValue());
-            }
-        } else {
-            extraData = null;
-        }
-
-        BinaryStream stream = new BinaryStream();
-        stream.put(chunk.getBlockIdArray());
-        stream.put(chunk.getBlockDataArray());
-        stream.put(chunk.getBlockSkyLightArray());
-        stream.put(chunk.getBlockLightArray());
-        stream.put(chunk.getHeightMapArray());
-        stream.put(chunk.getBiomeIdArray());
-        if (extraData != null) {
-            stream.put(extraData.getBuffer());
-        } else {
-            stream.putLInt(0);
-        }
-        stream.put(tiles);
-
-        this.getLevel().chunkRequestCallback(timestamp, x, z, stream.getBuffer());
 
         return null;
     }
@@ -179,6 +167,7 @@ public class McRegion extends BaseLevelProvider {
         return chunk;
     }
 
+    @Override
     public Chunk getEmptyChunk(int chunkX, int chunkZ) {
         return Chunk.getEmptyChunk(chunkX, chunkZ, this);
     }
@@ -213,18 +202,19 @@ public class McRegion extends BaseLevelProvider {
     }
 
     protected BaseRegionLoader loadRegion(int x, int z) {
-        BaseRegionLoader tmp = lastRegion;
+        BaseRegionLoader tmp = lastRegion.get();
         if (tmp != null && x == tmp.getX() && z == tmp.getZ()) {
             return tmp;
         }
         long index = Level.chunkHash(x, z);
-        BaseRegionLoader region = this.regions.get(index);
-        if (region == null) {
-            region = new RegionLoader(this, x, z);
-            this.regions.put(index, region);
-            return lastRegion = region;
-        } else {
-            return lastRegion = region;
+        synchronized (regions) {
+            BaseRegionLoader region = this.regions.get(index);
+            if (region == null) {
+                region = new RegionLoader(this, x, z);
+                this.regions.put(index, region);
+            }
+            lastRegion.set(region);
+            return region;
         }
     }
 }

@@ -155,6 +155,12 @@ public class LevelDB implements LevelProvider {
         }
     }
 
+
+    @Override
+    public Chunk getEmptyChunk(int chunkX, int chunkZ) {
+        return Chunk.getEmptyChunk(chunkX, chunkZ, this);
+    }
+
     @Override
     public AsyncTask requestChunkTask(int x, int z) {
         Chunk chunk = this.getChunk(x, z, false);
@@ -164,7 +170,24 @@ public class LevelDB implements LevelProvider {
 
         long timestamp = chunk.getChanges();
 
-        byte[] tiles = new byte[0];
+        BinaryStream stream = new BinaryStream();
+        stream.putByte((byte) 0); // subchunk version
+
+        stream.put(chunk.getBlockIdArray());
+        stream.put(chunk.getBlockDataArray());
+        stream.put(chunk.getBlockSkyLightArray());
+        stream.put(chunk.getBlockLightArray());
+        stream.put(chunk.getHeightMapArray());
+        stream.put(chunk.getBiomeIdArray());
+
+        Map<Integer, Integer> extra = chunk.getBlockExtraDataArray();
+        stream.putLInt(extra.size());
+        if (!extra.isEmpty()) {
+            for (Integer key : extra.values()) {
+                stream.putLInt(key);
+                stream.putLShort(extra.get(key));
+            }
+        }
 
         if (!chunk.getBlockEntities().isEmpty()) {
             List<CompoundTag> tagList = new ArrayList<>();
@@ -176,40 +199,13 @@ public class LevelDB implements LevelProvider {
             }
 
             try {
-                tiles = NBTIO.write(tagList, ByteOrder.LITTLE_ENDIAN);
+                stream.put(NBTIO.write(tagList, ByteOrder.LITTLE_ENDIAN));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
 
-        Map<Integer, Integer> extra = chunk.getBlockExtraDataArray();
-        BinaryStream extraData;
-        if (!extra.isEmpty()) {
-            extraData = new BinaryStream();
-            extraData.putLInt(extra.size());
-            for (Integer key : extra.values()) {
-                extraData.putLInt(key);
-                extraData.putLShort(extra.get(key));
-            }
-        } else {
-            extraData = null;
-        }
-
-        BinaryStream stream = new BinaryStream();
-        stream.put(chunk.getBlockIdArray());
-        stream.put(chunk.getBlockDataArray());
-        stream.put(chunk.getBlockSkyLightArray());
-        stream.put(chunk.getBlockLightArray());
-        stream.put(chunk.getHeightMapArray());
-        stream.put(chunk.getBiomeIdArray());
-        if (extraData != null) {
-            stream.put(extraData.getBuffer());
-        } else {
-            stream.putLInt(0);
-        }
-        stream.put(tiles);
-
-        this.getLevel().chunkRequestCallback(timestamp, x, z, stream.getBuffer());
+        this.getLevel().chunkRequestCallback(timestamp, x, z, 16, stream.getBuffer());
 
         return null;
     }
@@ -329,7 +325,7 @@ public class LevelDB implements LevelProvider {
     @Override
     public boolean unloadChunk(int x, int z, boolean safe) {
         long index = Level.chunkHash(x, z);
-        Chunk chunk = this.chunks.containsKey(index) ? this.chunks.get(index) : null;
+        Chunk chunk = this.chunks.getOrDefault(index, null);
         if (chunk != null && chunk.unload(false, safe)) {
             this.chunks.remove(index);
             return true;
@@ -365,7 +361,7 @@ public class LevelDB implements LevelProvider {
             return this.chunks.get(index);
         } else {
             this.loadChunk(x, z, create);
-            return this.chunks.containsKey(index) ? this.chunks.get(index) : null;
+            return this.chunks.getOrDefault(index, null);
         }
     }
 
@@ -559,6 +555,6 @@ public class LevelDB implements LevelProvider {
                 result.add(key);
             }
         });
-        return result.stream().toArray(byte[][]::new);
+        return result.toArray(new byte[0][]);
     }
 }

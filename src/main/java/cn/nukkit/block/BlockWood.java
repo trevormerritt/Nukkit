@@ -64,11 +64,6 @@ public class BlockWood extends BlockSolidMeta {
     }
 
     @Override
-    public boolean place(Item item, Block block, Block target, BlockFace face, double fx, double fy, double fz) {
-        return this.place(item, block, target, face, fx, fy, fz, null);
-    }
-
-    @Override
     public boolean place(Item item, Block block, Block target, BlockFace face, double fx, double fy, double fz, Player player) {
         short[] faces = new short[]{
                 0,
@@ -97,6 +92,16 @@ public class BlockWood extends BlockSolidMeta {
 
     @Override
     public BlockColor getColor() {
-        return BlockColor.WOOD_BLOCK_COLOR;
+        switch(getDamage() & 0x07){
+            default:
+            case OAK:
+                return BlockColor.WOOD_BLOCK_COLOR;
+            case SPRUCE:
+                return BlockColor.SPRUCE_BLOCK_COLOR;
+            case BIRCH:
+                return BlockColor.SAND_BLOCK_COLOR;
+            case JUNGLE:
+                return BlockColor.DIRT_BLOCK_COLOR;
+        }
     }
 }

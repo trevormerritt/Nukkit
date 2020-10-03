@@ -15,11 +15,15 @@ import cn.nukkit.utils.BinaryStream;
 import cn.nukkit.utils.ChunkException;
 import cn.nukkit.utils.ThreadCache;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteOrder;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -74,7 +78,7 @@ public class Anvil extends BaseLevelProvider {
                 .putLong("DayTime", 0)
                 .putInt("GameType", 0)
                 .putString("generatorName", Generator.getGeneratorName(generator))
-                .putString("generatorOptions", options.containsKey("preset") ? options.get("preset") : "")
+                .putString("generatorOptions", options.getOrDefault("preset", ""))
                 .putInt("generatorVersion", 1)
                 .putBoolean("hardcore", false)
                 .putBoolean("initialized", true)
@@ -95,6 +99,7 @@ public class Anvil extends BaseLevelProvider {
         NBTIO.writeGZIPCompressed(new CompoundTag().putCompound("Data", levelData), new FileOutputStream(path + "level.dat"), ByteOrder.BIG_ENDIAN);
     }
 
+    @Override
     public Chunk getEmptyChunk(int chunkX, int chunkZ) {
         return Chunk.getEmptyChunk(chunkX, chunkZ, this);
     }
@@ -148,15 +153,13 @@ public class Anvil extends BaseLevelProvider {
                 break;
             }
         }
-        stream.putByte((byte) count);
+//        stream.putByte((byte) count);  count is now sent in packet
         for (int i = 0; i < count; i++) {
-            stream.putByte((byte) 0);
-            stream.put(sections[i].getBytes());
+            sections[i].writeTo(stream);
         }
-        for (byte height : chunk.getHeightMapArray()) {
-            stream.putByte(height);
-        }
-        stream.put(PAD_256);
+//        for (byte height : chunk.getHeightMapArray()) {
+//            stream.putByte(height);
+//        } computed client side?
         stream.put(chunk.getBiomeIdArray());
         stream.putByte((byte) 0);
         if (extraData != null) {
@@ -166,7 +169,7 @@ public class Anvil extends BaseLevelProvider {
         }
         stream.put(blockEntities);
 
-        this.getLevel().chunkRequestCallback(timestamp, x, z, stream.getBuffer());
+        this.getLevel().chunkRequestCallback(timestamp, x, z, count, stream.getBuffer());
 
         return null;
     }
@@ -178,43 +181,29 @@ public class Anvil extends BaseLevelProvider {
         long start = System.currentTimeMillis();
         int maxIterations = size();
         if (lastPosition > maxIterations) lastPosition = 0;
-        ObjectIterator<BaseFullChunk> iter = getChunks();
-        if (lastPosition != 0) iter.skip(lastPosition);
         int i;
-        for (i = 0; i < maxIterations; i++) {
-            if (!iter.hasNext()) {
-                iter = getChunks();
-            }
-            BaseFullChunk chunk = iter.next();
-            if (chunk == null) continue;
-            if (chunk.isGenerated() && chunk.isPopulated() && chunk instanceof Chunk) {
-                Chunk anvilChunk = (Chunk) chunk;
-                chunk.compress();
-                if (System.currentTimeMillis() - start >= time) break;
+        synchronized (chunks) {
+            ObjectIterator<BaseFullChunk> iter = chunks.values().iterator();
+            if (lastPosition != 0) iter.skip(lastPosition);
+            for (i = 0; i < maxIterations; i++) {
+                if (!iter.hasNext()) {
+                    iter = chunks.values().iterator();
+                }
+                if (!iter.hasNext()) break;
+                BaseFullChunk chunk = iter.next();
+                if (chunk == null) continue;
+                if (chunk.isGenerated() && chunk.isPopulated() && chunk instanceof Chunk) {
+                    Chunk anvilChunk = (Chunk) chunk;
+                    chunk.compress();
+                    if (System.currentTimeMillis() - start >= time) break;
+                }
             }
         }
         lastPosition += i;
     }
 
     @Override
-    public void doGarbageCollection() {
-        int limit = (int) (System.currentTimeMillis() - 50);
-        for (Map.Entry<Long, BaseRegionLoader> entry : this.regions.entrySet()) {
-            long index = entry.getKey();
-            BaseRegionLoader region = entry.getValue();
-            if (region.lastUsed <= limit) {
-                try {
-                    region.close();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                this.regions.remove(index);
-            }
-        }
-    }
-
-    @Override
-    public BaseFullChunk loadChunk(long index, int chunkX, int chunkZ, boolean create) {
+    public synchronized BaseFullChunk loadChunk(long index, int chunkX, int chunkZ, boolean create) {
         int regionX = getRegionIndexX(chunkX);
         int regionZ = getRegionIndexZ(chunkZ);
         BaseRegionLoader region = this.loadRegion(regionX, regionZ);
@@ -238,20 +227,20 @@ public class Anvil extends BaseLevelProvider {
     }
 
     @Override
-    public void saveChunk(int X, int Z) {
+    public synchronized void saveChunk(int X, int Z) {
         BaseFullChunk chunk = this.getChunk(X, Z);
         if (chunk != null) {
             try {
                 this.loadRegion(X >> 5, Z >> 5).writeChunk(chunk);
             } catch (Exception e) {
-                throw new RuntimeException(e);
+                throw new ChunkException("Error saving chunk (" + X + ", " + Z + ")", e);
             }
         }
     }
 
 
     @Override
-    public void saveChunk(int x, int z, FullChunk chunk) {
+    public synchronized void saveChunk(int x, int z, FullChunk chunk) {
         if (!(chunk instanceof Chunk)) {
             throw new ChunkException("Invalid Chunk class");
         }
@@ -273,23 +262,24 @@ public class Anvil extends BaseLevelProvider {
         return cs;
     }
 
-    protected BaseRegionLoader loadRegion(int x, int z) {
-        BaseRegionLoader tmp = lastRegion;
+    protected synchronized BaseRegionLoader loadRegion(int x, int z) {
+        BaseRegionLoader tmp = lastRegion.get();
         if (tmp != null && x == tmp.getX() && z == tmp.getZ()) {
             return tmp;
         }
         long index = Level.chunkHash(x, z);
-        BaseRegionLoader region = this.regions.get(index);
-        if (region == null) {
-            try {
-                region = new RegionLoader(this, x, z);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+        synchronized (regions) {
+            BaseRegionLoader region = this.regions.get(index);
+            if (region == null) {
+                try {
+                    region = new RegionLoader(this, x, z);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                this.regions.put(index, region);
             }
-            this.regions.put(index, region);
-            return lastRegion = region;
-        } else {
-            return lastRegion = region;
+            lastRegion.set(region);
+            return region;
         }
     }
 }

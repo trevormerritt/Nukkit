@@ -1,12 +1,13 @@
 package cn.nukkit.level.format;
 
 import cn.nukkit.block.Block;
+import cn.nukkit.utils.BinaryStream;
 
 /**
  * author: MagicDroidX
  * Nukkit Project
  */
-public interface ChunkSection extends Cloneable {
+public interface ChunkSection {
     int getY();
 
     int getBlockId(int x, int y, int z);
@@ -45,7 +46,7 @@ public interface ChunkSection extends Cloneable {
 
     boolean isEmpty();
 
-    byte[] getBytes();
+    void writeTo(BinaryStream stream);
 
-    ChunkSection clone();
+    ChunkSection copy();
 }

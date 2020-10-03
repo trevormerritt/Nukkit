@@ -3,14 +3,17 @@ package cn.nukkit.block;
 import cn.nukkit.Player;
 import cn.nukkit.event.block.BlockRedstoneEvent;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.ItemBlock;
 import cn.nukkit.level.Level;
-import cn.nukkit.level.Sound;
 import cn.nukkit.math.BlockFace;
+import cn.nukkit.network.protocol.LevelEventPacket;
+import cn.nukkit.utils.BlockColor;
+import cn.nukkit.utils.Faceable;
 
 /**
  * @author Nukkit Project Team
  */
-public class BlockLever extends BlockFlowable {
+public class BlockLever extends BlockFlowable implements Faceable {
 
     public BlockLever() {
         this(0);
@@ -46,6 +49,11 @@ public class BlockLever extends BlockFlowable {
     }
 
     @Override
+    public Item toItem() {
+        return new ItemBlock(this, 0);
+    }
+
+    @Override
     public Item[] getDrops(Item item) {
         return new Item[]{toItem()};
     }
@@ -60,7 +68,7 @@ public class BlockLever extends BlockFlowable {
         this.setDamage(this.getDamage() ^ 0x08);
 
         this.getLevel().setBlock(this, this, false, true);
-        this.getLevel().addSound(this, Sound.RANDOM_CLICK); //TODO: coorect pitcj
+        this.getLevel().addLevelEvent(this.add(0.5, 0.5, 0.5), LevelEventPacket.EVENT_SOUND_BUTTON_CLICK, this.isPowerOn() ? 600 : 500);
 
         LeverOrientation orientation = LeverOrientation.byMetadata(this.isPowerOn() ? this.getDamage() ^ 0x08 : this.getDamage());
         BlockFace face = orientation.getFacing();
@@ -93,7 +101,7 @@ public class BlockLever extends BlockFlowable {
 
     @Override
     public boolean onBreak(Item item) {
-        this.getLevel().setBlock(this, new BlockAir(), true, true);
+        this.getLevel().setBlock(this, Block.get(BlockID.AIR), true, true);
 
         if (isPowerOn()) {
             BlockFace face = LeverOrientation.byMetadata(this.isPowerOn() ? this.getDamage() ^ 0x08 : this.getDamage()).getFacing();
@@ -209,5 +217,15 @@ public class BlockLever extends BlockFlowable {
                 META_LOOKUP[face.getMetadata()] = face;
             }
         }
+    }
+
+    @Override
+    public BlockFace getBlockFace() {
+        return BlockFace.fromHorizontalIndex(this.getDamage() & 0x07);
+    }
+
+    @Override
+    public BlockColor getColor() {
+        return BlockColor.AIR_BLOCK_COLOR;
     }
 }

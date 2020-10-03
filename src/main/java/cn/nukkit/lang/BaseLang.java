@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * author: MagicDroidX
@@ -129,7 +130,21 @@ public class BaseLang {
     }
 
     public String translateString(String str, String... params) {
-        return this.translateString(str, params, null);
+        if (params != null) {
+            return this.translateString(str, params, null);
+        }
+        return this.translateString(str, new String[0], null);
+    }
+
+    public String translateString(String str, Object... params) {
+        if (params != null) {
+            String[] paramsToString = new String[params.length];
+            for (int i = 0; i < params.length; i++) {
+                paramsToString[i] = Objects.toString(params[i]);
+            }
+            return this.translateString(str, paramsToString, null);
+        }
+        return this.translateString(str, new String[0], null);
     }
 
     public String translateString(String str, String param, String onlyPrefix) {
@@ -181,7 +196,7 @@ public class BaseLang {
     }
 
     protected String parseTranslation(String text, String onlyPrefix) {
-        String newString = "";
+        StringBuilder newString = new StringBuilder();
         text = String.valueOf(text);
 
         String replaceString = null;
@@ -200,32 +215,32 @@ public class BaseLang {
                 } else {
                     String t = this.internalGet(replaceString.substring(1));
                     if (t != null && (onlyPrefix == null || replaceString.indexOf(onlyPrefix) == 1)) {
-                        newString += t;
+                        newString.append(t);
                     } else {
-                        newString += replaceString;
+                        newString.append(replaceString);
                     }
                     replaceString = null;
                     if (c == '%') {
                         replaceString = String.valueOf(c);
                     } else {
-                        newString += String.valueOf(c);
+                        newString.append(c);
                     }
                 }
             } else if (c == '%') {
                 replaceString = String.valueOf(c);
             } else {
-                newString += String.valueOf(c);
+                newString.append(c);
             }
         }
 
         if (replaceString != null) {
             String t = this.internalGet(replaceString.substring(1));
             if (t != null && (onlyPrefix == null || replaceString.indexOf(onlyPrefix) == 1)) {
-                newString += t;
+                newString.append(t);
             } else {
-                newString += replaceString;
+                newString.append(replaceString);
             }
         }
-        return newString;
+        return newString.toString();
     }
 }

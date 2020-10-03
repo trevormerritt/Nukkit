@@ -15,7 +15,12 @@ public abstract class SnowyBiome extends GrassyBiome {
     }
 
     @Override
-    public int getCoverBlock() {
-        return SNOW_LAYER;
+    public int getCoverId(int x, int z) {
+        return SNOW_LAYER << 4;
+    }
+
+    @Override
+    public boolean canRain() {
+        return false;
     }
 }

@@ -1,5 +1,7 @@
 package cn.nukkit.utils;
 
+import com.google.gson.JsonObject;
+
 import java.util.UUID;
 
 /**
@@ -21,6 +23,8 @@ public interface LoginChainData {
 
     int getDeviceOS();
 
+    String getDeviceId();
+
     String getGameVersion();
 
     int getGuiScale();
@@ -38,4 +42,6 @@ public interface LoginChainData {
     String getCapeData();
 
     int getUIProfile();
+
+    JsonObject getRawData();
 }

@@ -1,10 +1,8 @@
 package cn.nukkit.entity.passive;
 
-import cn.nukkit.Player;
 import cn.nukkit.item.Item;
 import cn.nukkit.level.format.FullChunk;
 import cn.nukkit.nbt.tag.CompoundTag;
-import cn.nukkit.network.protocol.AddEntityPacket;
 
 /**
  * Author: BeYkeRYkt Nukkit Project
@@ -40,7 +38,7 @@ public class EntityRabbit extends EntityAnimal {
 
     @Override
     public Item[] getDrops() {
-        return new Item[]{Item.get(Item.RAW_RABBIT), Item.get(Item.RABBIT_HIDE), Item.get(Item.RABBIT_FOOT)};
+        return new Item[]{Item.get(((this.isOnFire()) ? Item.COOKED_RABBIT : Item.RAW_RABBIT)), Item.get(Item.RABBIT_HIDE), Item.get(Item.RABBIT_FOOT)};
     }
 
     @Override
@@ -52,23 +50,5 @@ public class EntityRabbit extends EntityAnimal {
     protected void initEntity() {
         super.initEntity();
         setMaxHealth(10);
-    }
-
-    @Override
-    public void spawnTo(Player player) {
-        AddEntityPacket pk = new AddEntityPacket();
-        pk.type = this.getNetworkId();
-        pk.entityUniqueId = this.getId();
-        pk.entityRuntimeId = this.getId();
-        pk.x = (float) this.x;
-        pk.y = (float) this.y;
-        pk.z = (float) this.z;
-        pk.speedX = (float) this.motionX;
-        pk.speedY = (float) this.motionY;
-        pk.speedZ = (float) this.motionZ;
-        pk.metadata = this.dataProperties;
-        player.dataPacket(pk);
-
-        super.spawnTo(player);
     }
 }

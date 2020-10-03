@@ -34,7 +34,12 @@ public class ShortTag extends NumberTag<Integer> {
 
     @Override
     void load(NBTInputStream dis) throws IOException {
-        data = dis.readUnsignedShort();
+        data = dis.readShort();
+    }
+
+    @Override
+    public Integer parseValue() {
+        return this.data;
     }
 
     @Override

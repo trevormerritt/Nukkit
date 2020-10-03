@@ -237,7 +237,8 @@ public interface BlockID {
     int COAL_BLOCK = 173;
     int PACKED_ICE = 174;
     int DOUBLE_PLANT = 175;
-
+    int STANDING_BANNER = 176;
+    int WALL_BANNER = 177;
     int DAYLIGHT_DETECTOR_INVERTED = 178;
     int RED_SANDSTONE = 179;
     int RED_SANDSTONE_STAIRS = 180;
@@ -260,8 +261,8 @@ public interface BlockID {
     int PURPUR_BLOCK = 201;
 
     int PURPUR_STAIRS = 203;
-    int DOUBLE_PURPUR_SLAB = 204;
-    int PURPUR_SLAB = 205;
+    //int DOUBLE_PURPUR_SLAB = 204;
+    int UNDYED_SHULKER_BOX = 205;
     int END_BRICKS = 206;
     //Note: frosted ice CAN NOT BE HARVESTED WITH HAND -- canHarvestWithHand method should be overridden FALSE.
     int ICE_FROSTED = 207;

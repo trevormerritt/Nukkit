@@ -1,12 +1,14 @@
 package cn.nukkit.network.protocol;
 
 import cn.nukkit.entity.data.Skin;
+import lombok.ToString;
 
 import java.util.UUID;
 
 /**
  * @author Nukkit Project Team
  */
+@ToString
 public class PlayerListPacket extends DataPacket {
 
     public static final byte NETWORK_ID = ProtocolInfo.PLAYER_LIST_PACKET;
@@ -32,16 +34,20 @@ public class PlayerListPacket extends DataPacket {
             if (type == TYPE_ADD) {
                 this.putVarLong(entry.entityId);
                 this.putString(entry.name);
-                this.putString(entry.thirdPartyName);
-                this.putVarInt(entry.platformId);
-                this.putSkin(entry.skin);
-                this.putString(entry.geometryModel);
-                this.putByteArray(entry.geometryData);
                 this.putString(entry.xboxUserId);
                 this.putString(entry.platformChatId);
+                this.putLInt(entry.buildPlatform);
+                this.putSkin(entry.skin);
+                this.putBoolean(entry.isTeacher);
+                this.putBoolean(entry.isHost);
             }
         }
 
+        if (type == TYPE_ADD) {
+            for (Entry entry : this.entries) { // Biggest wtf
+                this.putBoolean(entry.skin.isTrusted());
+            }
+        }
     }
 
     @Override
@@ -49,19 +55,18 @@ public class PlayerListPacket extends DataPacket {
         return NETWORK_ID;
     }
 
+    @ToString
     public static class Entry {
 
         public final UUID uuid;
         public long entityId = 0;
         public String name = "";
-        public String thirdPartyName = "";
-        public int platformId = 0;
-        public Skin skin;
-        public byte[] capeData = new byte[0]; //TODO
-        public String geometryModel = "";
-        public byte[] geometryData = new byte[0]; //TODO
         public String xboxUserId = ""; //TODO
         public String platformChatId = ""; //TODO
+        public int buildPlatform = -1;
+        public Skin skin;
+        public boolean isTeacher;
+        public boolean isHost;
 
         public Entry(UUID uuid) {
             this.uuid = uuid;
@@ -76,7 +81,6 @@ public class PlayerListPacket extends DataPacket {
             this.entityId = entityId;
             this.name = name;
             this.skin = skin;
-            this.capeData = skin.getCape().getData();
             this.xboxUserId = xboxUserId == null ? "" : xboxUserId;
         }
     }

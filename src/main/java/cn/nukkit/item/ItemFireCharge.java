@@ -1,14 +1,13 @@
 package cn.nukkit.item;
 
-import cn.nukkit.block.Block;
+import cn.nukkit.block.*;
 import cn.nukkit.math.BlockFace;
 import cn.nukkit.level.Level;
 import cn.nukkit.Player;
-import cn.nukkit.block.BlockSolid;
-import cn.nukkit.block.BlockSolidMeta;
+
 import java.util.concurrent.ThreadLocalRandom;
 import cn.nukkit.event.block.BlockIgniteEvent;
-import cn.nukkit.block.BlockFire;
+import cn.nukkit.network.protocol.LevelEventPacket;
 
 /**
  * Created by PetteriM1
@@ -35,7 +34,13 @@ public class ItemFireCharge extends Item {
     @Override
     public boolean onActivate(Level level, Player player, Block block, Block target, BlockFace face, double fx, double fy, double fz) {
         if (block.getId() == AIR && (target instanceof BlockSolid || target instanceof BlockSolidMeta)) {
-            BlockFire fire = new BlockFire();
+            if (target.getId() == OBSIDIAN) {
+                if (level.createPortal(target)) {
+                    return true;
+                }
+            }
+
+            BlockFire fire = (BlockFire) Block.get(BlockID.FIRE);
             fire.x = block.x;
             fire.y = block.y;
             fire.z = block.z;
@@ -47,6 +52,7 @@ public class ItemFireCharge extends Item {
 
                 if (!e.isCancelled()) {
                     level.setBlock(fire, fire, true);
+                    level.addLevelEvent(block, LevelEventPacket.EVENT_SOUND_BLAZE_SHOOT, 78642);
                     level.scheduleUpdate(fire, fire.tickRate() + ThreadLocalRandom.current().nextInt(10));
                 }
                 if (player.isSurvival()) {

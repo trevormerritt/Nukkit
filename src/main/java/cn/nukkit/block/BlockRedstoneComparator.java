@@ -6,10 +6,11 @@ import cn.nukkit.blockentity.BlockEntityComparator;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemRedstoneComparator;
 import cn.nukkit.level.Level;
-import cn.nukkit.level.Sound;
 import cn.nukkit.math.BlockFace;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.ListTag;
+import cn.nukkit.network.protocol.LevelEventPacket;
+import cn.nukkit.utils.BlockColor;
 
 /**
  * @author CreeperFace
@@ -40,12 +41,12 @@ public abstract class BlockRedstoneComparator extends BlockRedstoneDiode {
 
     @Override
     protected BlockRedstoneComparator getUnpowered() {
-        return new BlockRedstoneComparatorUnpowered(this.getDamage());
+        return (BlockRedstoneComparator) Block.get(BlockID.UNPOWERED_COMPARATOR, this.getDamage());
     }
 
     @Override
     protected BlockRedstoneComparator getPowered() {
-        return new BlockRedstoneComparatorPowered(this.getDamage());
+        return (BlockRedstoneComparator) Block.get(BlockID.POWERED_COMPARATOR, this.getDamage());
     }
 
     @Override
@@ -118,7 +119,7 @@ public abstract class BlockRedstoneComparator extends BlockRedstoneDiode {
             this.setDamage(this.getDamage() + 4);
         }
 
-        this.level.addSound(this, Sound.RANDOM_CLICK, 1, getMode() == Mode.SUBTRACT ? 0.55F : 0.5F);
+        this.level.addLevelEvent(this.add(0.5, 0.5, 0.5), LevelEventPacket.EVENT_SOUND_BUTTON_CLICK, this.getMode() == Mode.SUBTRACT ? 500 : 550);
         this.level.setBlock(this, this, true, false);
         //bug?
 
@@ -170,8 +171,10 @@ public abstract class BlockRedstoneComparator extends BlockRedstoneDiode {
                     .putInt("x", (int) this.x)
                     .putInt("y", (int) this.y)
                     .putInt("z", (int) this.z);
-            new BlockEntityComparator(this.level.getChunk((int) this.x >> 4, (int) this.z >> 4), nbt);
-
+            BlockEntityComparator comparator = (BlockEntityComparator) BlockEntity.createBlockEntity(BlockEntity.COMPARATOR, this.level.getChunk((int) this.x >> 4, (int) this.z >> 4), nbt);
+            if (comparator == null) {
+                return false;
+            }
             onUpdate(Level.BLOCK_UPDATE_REDSTONE);
             return true;
         }
@@ -192,5 +195,10 @@ public abstract class BlockRedstoneComparator extends BlockRedstoneDiode {
     public enum Mode {
         COMPARE,
         SUBTRACT
+    }
+
+    @Override
+    public BlockColor getColor() {
+        return BlockColor.AIR_BLOCK_COLOR;
     }
 }

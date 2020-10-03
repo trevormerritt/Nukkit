@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 public class HastebinUtility {
 
     public static final String BIN_URL = "https://hastebin.com/documents", USER_AGENT = "Mozilla/5.0";
-    public static final Pattern PATTERN = Pattern.compile("\\{\"key\":\"([\\S\\s]*)\"\\}");
+    public static final Pattern PATTERN = Pattern.compile("\\{\"key\":\"([\\S\\s]*)\"}");
 
     public static String upload(final String string) throws IOException {
         final URL url = new URL(BIN_URL);
@@ -51,7 +51,9 @@ public class HastebinUtility {
             String line;
             int i = 0;
             while ((line = reader.readLine()) != null) {
-                lines.add(line);
+                if (!line.contains("rcon.password=")) {
+                    lines.add(line);
+                }
             }
         }
         for (int i = Math.max(0, lines.size() - 1000); i < lines.size(); i++) {

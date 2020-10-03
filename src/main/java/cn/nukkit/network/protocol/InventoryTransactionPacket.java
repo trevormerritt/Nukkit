@@ -5,7 +5,12 @@ import cn.nukkit.inventory.transaction.data.TransactionData;
 import cn.nukkit.inventory.transaction.data.UseItemData;
 import cn.nukkit.inventory.transaction.data.UseItemOnEntityData;
 import cn.nukkit.network.protocol.types.NetworkInventoryAction;
+import lombok.ToString;
 
+import java.util.ArrayDeque;
+import java.util.Collection;
+
+@ToString
 public class InventoryTransactionPacket extends DataPacket {
 
     public static final int TYPE_NORMAL = 0;
@@ -34,12 +39,15 @@ public class InventoryTransactionPacket extends DataPacket {
     public int transactionType;
     public NetworkInventoryAction[] actions;
     public TransactionData transactionData;
+    public boolean hasNetworkIds;
+    public int legacyRequestId;
 
     /**
-     * NOTE: THIS FIELD DOES NOT EXIST IN THE PROTOCOL, it's merely used for convenience for PocketMine-MP to easily
-     * determine whether we're doing a crafting transaction.
+     * NOTE: THESE FIELDS DO NOT EXIST IN THE PROTOCOL, it's merely used for convenience for us to easily
+     * determine whether we're doing a crafting or enchanting transaction.
      */
     public boolean isCraftingPart = false;
+    public boolean isEnchantingPart = false;
 
     @Override
     public byte pid() {
@@ -49,8 +57,10 @@ public class InventoryTransactionPacket extends DataPacket {
     @Override
     public void encode() {
         this.reset();
+        this.putVarInt(this.legacyRequestId);
+        //TODO legacySlot array
         this.putUnsignedVarInt(this.transactionType);
-
+        this.putBoolean(this.hasNetworkIds);
         this.putUnsignedVarInt(this.actions.length);
         for (NetworkInventoryAction action : this.actions) {
             action.write(this);
@@ -70,6 +80,7 @@ public class InventoryTransactionPacket extends DataPacket {
                 this.putSlot(useItemData.itemInHand);
                 this.putVector3f(useItemData.playerPos.asVector3f());
                 this.putVector3f(useItemData.clickPos);
+                this.putUnsignedVarInt(useItemData.blockRuntimeId);
                 break;
             case TYPE_USE_ITEM_ON_ENTITY:
                 UseItemOnEntityData useItemOnEntityData = (UseItemOnEntityData) this.transactionData;
@@ -78,8 +89,8 @@ public class InventoryTransactionPacket extends DataPacket {
                 this.putUnsignedVarInt(useItemOnEntityData.actionType);
                 this.putVarInt(useItemOnEntityData.hotbarSlot);
                 this.putSlot(useItemOnEntityData.itemInHand);
-                this.putVector3f(useItemOnEntityData.vector1.asVector3f());
-                this.putVector3f(useItemOnEntityData.vector2.asVector3f());
+                this.putVector3f(useItemOnEntityData.playerPos.asVector3f());
+                this.putVector3f(useItemOnEntityData.clickPos.asVector3f());
                 break;
             case TYPE_RELEASE_ITEM:
                 ReleaseItemData releaseItemData = (ReleaseItemData) this.transactionData;
@@ -96,12 +107,27 @@ public class InventoryTransactionPacket extends DataPacket {
 
     @Override
     public void decode() {
+        this.legacyRequestId = this.getVarInt();
+        if (legacyRequestId < -1 && (legacyRequestId & 1) == 0) {
+            int length = (int) this.getUnsignedVarInt();
+            for (int i = 0; i < length; i++) {
+                this.getByte();
+                int bufLen = (int) this.getUnsignedVarInt();
+                this.get(bufLen);
+            }
+
+        }
+
         this.transactionType = (int) this.getUnsignedVarInt();
 
-        this.actions = new NetworkInventoryAction[(int) this.getUnsignedVarInt()];
-        for (int i = 0; i < this.actions.length; i++) {
-            this.actions[i] = new NetworkInventoryAction().read(this);
+        this.hasNetworkIds = this.getBoolean();
+
+        int length = (int) this.getUnsignedVarInt();
+        Collection<NetworkInventoryAction> actions = new ArrayDeque<>();
+        for (int i = 0; i < length; i++) {
+            actions.add(new NetworkInventoryAction().read(this));
         }
+        this.actions = actions.toArray(new NetworkInventoryAction[0]);
 
         switch (this.transactionType) {
             case TYPE_NORMAL:
@@ -118,6 +144,7 @@ public class InventoryTransactionPacket extends DataPacket {
                 itemData.itemInHand = this.getSlot();
                 itemData.playerPos = this.getVector3f().asVector3();
                 itemData.clickPos = this.getVector3f();
+                itemData.blockRuntimeId = (int) this.getUnsignedVarInt();
 
                 this.transactionData = itemData;
                 break;
@@ -128,8 +155,8 @@ public class InventoryTransactionPacket extends DataPacket {
                 useItemOnEntityData.actionType = (int) this.getUnsignedVarInt();
                 useItemOnEntityData.hotbarSlot = this.getVarInt();
                 useItemOnEntityData.itemInHand = this.getSlot();
-                useItemOnEntityData.vector1 = this.getVector3f().asVector3();
-                useItemOnEntityData.vector2 = this.getVector3f().asVector3();
+                useItemOnEntityData.playerPos = this.getVector3f().asVector3();
+                useItemOnEntityData.clickPos = this.getVector3f().asVector3();
 
                 this.transactionData = useItemOnEntityData;
                 break;

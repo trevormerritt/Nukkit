@@ -3,7 +3,6 @@ package cn.nukkit.item;
 import cn.nukkit.Player;
 import cn.nukkit.Server;
 import cn.nukkit.block.Block;
-import cn.nukkit.block.BlockAir;
 import cn.nukkit.block.BlockID;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.inventory.Fuel;
@@ -21,13 +20,9 @@ import cn.nukkit.utils.Config;
 import cn.nukkit.utils.MainLogger;
 import cn.nukkit.utils.Utils;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Pattern;
 
 /**
@@ -201,32 +196,33 @@ public class Item implements Cloneable, BlockID, ItemID {
             list[ROTTEN_FLESH] = ItemRottenFlesh.class; //367
             list[ENDER_PEARL] = ItemEnderPearl.class; //368
             list[BLAZE_ROD] = ItemBlazeRod.class; //369
-            //TODO: list[GHAST_TEAR] = ItemGhastTear.class; //370
+            list[GHAST_TEAR] = ItemGhastTear.class; //370
             list[GOLD_NUGGET] = ItemNuggetGold.class; //371
             list[NETHER_WART] = ItemNetherWart.class; //372
             list[POTION] = ItemPotion.class; //373
             list[GLASS_BOTTLE] = ItemGlassBottle.class; //374
             list[SPIDER_EYE] = ItemSpiderEye.class; //375
-            //TODO: list[FERMENTED_SPIDER_EYE] = ItemSpiderEyeFermented.class; //376
-            //TODO: list[BLAZE_POWDER] = ItemBlazePowder.class; //377
-            //TODO: list[MAGMA_CREAM] = ItemMagmaCream.class; //378
+            list[FERMENTED_SPIDER_EYE] = ItemSpiderEyeFermented.class; //376
+            list[BLAZE_POWDER] = ItemBlazePowder.class; //377
+            list[MAGMA_CREAM] = ItemMagmaCream.class; //378
             list[BREWING_STAND] = ItemBrewingStand.class; //379
             list[CAULDRON] = ItemCauldron.class; //380
             list[ENDER_EYE] = ItemEnderEye.class; //381
-            //TODO: list[GLISTERING_MELON] = ItemMelonGlistering.class; //382
+            list[GLISTERING_MELON] = ItemMelonGlistering.class; //382
             list[SPAWN_EGG] = ItemSpawnEgg.class; //383
             list[EXPERIENCE_BOTTLE] = ItemExpBottle.class; //384
             list[FIRE_CHARGE] = ItemFireCharge.class; //385
-            //TODO: list[BOOK_AND_QUILL] = ItemBookAndQuill.class; //386
+            list[BOOK_AND_QUILL] = ItemBookAndQuill.class; //386
             list[WRITTEN_BOOK] = ItemBookWritten.class; //387
             list[EMERALD] = ItemEmerald.class; //388
             list[ITEM_FRAME] = ItemItemFrame.class; //389
             list[FLOWER_POT] = ItemFlowerPot.class; //390
             list[CARROT] = ItemCarrot.class; //391
+            list[POTATO] = ItemPotato.class; //392
             list[BAKED_POTATO] = ItemPotatoBaked.class; //393
             list[POISONOUS_POTATO] = ItemPotatoPoisonous.class; //394
             //TODO: list[EMPTY_MAP] = ItemEmptyMap.class; //395
-            //TODO: list[GOLDEN_CARROT] = ItemCarrotGolden.class; //396
+            list[GOLDEN_CARROT] = ItemCarrotGolden.class; //396
             list[SKULL] = ItemSkull.class; //397
             list[CARROT_ON_A_STICK] = ItemCarrotOnAStick.class; //398
             list[NETHER_STAR] = ItemNetherStar.class; //399
@@ -262,17 +258,22 @@ public class Item implements Cloneable, BlockID, ItemID {
             list[JUNGLE_DOOR] = ItemDoorJungle.class; //429
             list[ACACIA_DOOR] = ItemDoorAcacia.class; //430
             list[DARK_OAK_DOOR] = ItemDoorDarkOak.class; //431
-            //TODO: list[CHORUS_FRUIT] = ItemChorusFruit.class; //432
+            list[CHORUS_FRUIT] = ItemChorusFruit.class; //432
             //TODO: list[POPPED_CHORUS_FRUIT] = ItemChorusFruitPopped.class; //433
 
             //TODO: list[DRAGON_BREATH] = ItemDragonBreath.class; //437
             list[SPLASH_POTION] = ItemPotionSplash.class; //438
 
-            //TODO: list[LINGERING_POTION] = ItemPotionLingering.class; //441
+            list[LINGERING_POTION] = ItemPotionLingering.class; //441
 
             list[ELYTRA] = ItemElytra.class; //444
 
             //TODO: list[SHULKER_SHELL] = ItemShulkerShell.class; //445
+            list[BANNER] = ItemBanner.class; //446
+
+            list[TOTEM] = ItemTotem.class; //450
+
+            list[TRIDENT] = ItemTrident.class; //455
 
             list[BEETROOT] = ItemBeetroot.class; //457
             list[BEETROOT_SEEDS] = ItemSeedsBeetroot.class; //458
@@ -281,8 +282,14 @@ public class Item implements Cloneable, BlockID, ItemID {
             list[CLOWNFISH] = ItemClownfish.class; //461
             list[PUFFERFISH] = ItemPufferfish.class; //462
             list[COOKED_SALMON] = ItemSalmonCooked.class; //463
+            list[DRIED_KELP] = ItemDriedKelp.class; //464
 
             list[GOLDEN_APPLE_ENCHANTED] = ItemAppleGoldEnchanted.class; //466
+            
+            list[TURTLE_SHELL] = ItemTurtleShell.class; //469
+
+            list[SWEET_BERRIES] = ItemSweetBerries.class; //477
+
             list[RECORD_11] = ItemRecord11.class;
             list[RECORD_CAT] = ItemRecordCat.class;
             list[RECORD_13] = ItemRecord13.class;
@@ -296,6 +303,13 @@ public class Item implements Cloneable, BlockID, ItemID {
             list[RECORD_STRAD] = ItemRecordStrad.class;
             list[RECORD_WAIT] = ItemRecordWait.class;
 
+            list[SHIELD] = ItemShield.class; //513
+
+            list[HONEYCOMB] = ItemHoneycomb.class; //736
+            list[HONEY_BOTTLE] = ItemHoneyBottle.class; //737
+
+            list[RECORD_PIGSTEP] = ItemRecordPigstep.class; //759
+
             for (int i = 0; i < 256; ++i) {
                 if (Block.list[i] != null) {
                     list[i] = Block.list[i];
@@ -308,29 +322,17 @@ public class Item implements Cloneable, BlockID, ItemID {
 
     private static final ArrayList<Item> creative = new ArrayList<>();
 
+    @SuppressWarnings("unchecked")
     private static void initCreativeItems() {
         clearCreativeItems();
-        Server server = Server.getInstance();
 
-        String path = server.getDataPath() + "creativeitems.json";
-        if (!new File(path).exists()) {
-            try {
-                Utils.writeFile(path, Server.class.getClassLoader().getResourceAsStream("creativeitems.json"));
-            } catch (IOException e) {
-                MainLogger.getLogger().logException(e);
-                return;
-            }
-        }
-        List<Map> list = new Config(path, Config.YAML).getMapList("items");
+        Config config = new Config(Config.JSON);
+        config.load(Server.class.getClassLoader().getResourceAsStream("creativeitems.json"));
+        List<Map> list = config.getMapList("items");
 
         for (Map map : list) {
             try {
-                int id = (int) map.get("id");
-                int damage = (int) map.getOrDefault("damage", 0);
-                String hex = (String) map.get("nbt_hex");
-                byte[] nbt = hex != null ? Utils.parseHexBinary(hex) : new byte[0];
-
-                addCreativeItem(Item.get(id, damage, 1, nbt));
+                addCreativeItem(fromJson(map));
             } catch (Exception e) {
                 MainLogger.getLogger().logException(e);
             }
@@ -425,7 +427,7 @@ public class Item implements Cloneable, BlockID, ItemID {
 
         Pattern integerPattern = Pattern.compile("^[1-9]\\d*$");
         if (integerPattern.matcher(b[0]).matches()) {
-            id = Integer.valueOf(b[0]);
+            id = Integer.parseInt(b[0]);
         } else {
             try {
                 id = Item.class.getField(b[0].toUpperCase()).getInt(null);
@@ -434,15 +436,26 @@ public class Item implements Cloneable, BlockID, ItemID {
         }
 
         id = id & 0xFFFF;
-        if (b.length != 1) meta = Integer.valueOf(b[1]) & 0xFFFF;
+        if (b.length != 1) meta = Integer.parseInt(b[1]) & 0xFFFF;
 
         return get(id, meta);
     }
 
     public static Item fromJson(Map<String, Object> data) {
-        String nbt = (String) data.getOrDefault("nbt_hex", "");
+        String nbt = (String) data.get("nbt_b64");
+        byte[] nbtBytes;
+        if (nbt != null) {
+            nbtBytes = Base64.getDecoder().decode(nbt);
+        } else { // Support old format for backwards compat
+            nbt = (String) data.getOrDefault("nbt_hex", null);
+            if (nbt == null) {
+                nbtBytes = new byte[0];
+            } else {
+                nbtBytes = Utils.parseHexBinary(nbt);
+            }
+        }
 
-        return get(Utils.toInt(data.get("id")), Utils.toInt(data.getOrDefault("damage", 0)), Utils.toInt(data.getOrDefault("count", 1)), nbt.isEmpty() ? new byte[0] : Utils.parseHexBinary(nbt));
+        return get(Utils.toInt(data.get("id")), Utils.toInt(data.getOrDefault("damage", 0)), Utils.toInt(data.getOrDefault("count", 1)), nbtBytes);
     }
 
     public static Item[] fromStringMultiple(String str) {
@@ -540,9 +553,7 @@ public class Item implements Cloneable, BlockID, ItemID {
 
         if (tag.contains("ench")) {
             Tag enchTag = tag.get("ench");
-            if (enchTag instanceof ListTag) {
-                return true;
-            }
+            return enchTag instanceof ListTag;
         }
 
         return false;
@@ -561,7 +572,7 @@ public class Item implements Cloneable, BlockID, ItemID {
             if (entry.getShort("id") == id) {
                 Enchantment e = Enchantment.getEnchantment(entry.getShort("id"));
                 if (e != null) {
-                    e.setLevel(entry.getShort("lvl"));
+                    e.setLevel(entry.getShort("lvl"), false);
                     return e;
                 }
             }
@@ -623,12 +634,12 @@ public class Item implements Cloneable, BlockID, ItemID {
         for (CompoundTag entry : ench.getAll()) {
             Enchantment e = Enchantment.getEnchantment(entry.getShort("id"));
             if (e != null) {
-                e.setLevel(entry.getShort("lvl"));
+                e.setLevel(entry.getShort("lvl"), false);
                 enchantments.add(e);
             }
         }
 
-        return enchantments.stream().toArray(Enchantment[]::new);
+        return enchantments.toArray(new Enchantment[0]);
     }
 
     public boolean hasCustomName() {
@@ -639,9 +650,7 @@ public class Item implements Cloneable, BlockID, ItemID {
         CompoundTag tag = this.getNamedTag();
         if (tag.contains("display")) {
             Tag tag1 = tag.get("display");
-            if (tag1 instanceof CompoundTag && ((CompoundTag) tag1).contains("Name") && ((CompoundTag) tag1).get("Name") instanceof StringTag) {
-                return true;
-            }
+            return tag1 instanceof CompoundTag && ((CompoundTag) tag1).contains("Name") && ((CompoundTag) tag1).get("Name") instanceof StringTag;
         }
 
         return false;
@@ -827,7 +836,7 @@ public class Item implements Cloneable, BlockID, ItemID {
         if (this.block != null) {
             return this.block.clone();
         } else {
-            return new BlockAir();
+            return Block.get(BlockID.AIR);
         }
     }
 
@@ -945,6 +954,14 @@ public class Item implements Cloneable, BlockID, ItemID {
         return false;
     }
 
+    public boolean onUse(Player player, int ticksUsed) {
+        return false;
+    }
+
+    public boolean onRelease(Player player, int ticksUsed) {
+        return false;
+    }
+
     @Override
     final public String toString() {
         return "Item " + this.name + " (" + this.id + ":" + (!this.hasMeta ? "?" : this.meta) + ")x" + this.count + (this.hasCompoundTag() ? " tags:0x" + Binary.bytesToHexString(this.getCompoundTag()) : "");
@@ -961,16 +978,12 @@ public class Item implements Cloneable, BlockID, ItemID {
     /**
      * Called when a player uses the item on air, for example throwing a projectile.
      * Returns whether the item was changed, for example count decrease or durability change.
+     *
+     * @param player player
+     * @param directionVector direction
+     * @return item changed
      */
     public boolean onClickAir(Player player, Vector3 directionVector) {
-        return false;
-    }
-
-    /**
-     * Called when a player is using this item and releases it. Used to handle bow shoot actions.
-     * Returns whether the item was changed, for example count decrease or durability change.
-     */
-    public boolean onReleaseUsing(Player player) {
         return false;
     }
 
@@ -1001,6 +1014,9 @@ public class Item implements Cloneable, BlockID, ItemID {
 
     /**
      * Returns whether the specified item stack has the same ID, damage, NBT and count as this item stack.
+     *
+     * @param other item
+     * @return equal
      */
     public final boolean equalsExact(Item other) {
         return this.equals(other, true, true) && this.count == other.count;

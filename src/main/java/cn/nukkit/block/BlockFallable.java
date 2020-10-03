@@ -1,6 +1,8 @@
 package cn.nukkit.block;
 
+import cn.nukkit.entity.Entity;
 import cn.nukkit.entity.item.EntityFallingBlock;
+import cn.nukkit.event.block.BlockFallEvent;
 import cn.nukkit.level.Level;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.DoubleTag;
@@ -14,12 +16,19 @@ import cn.nukkit.nbt.tag.ListTag;
  */
 public abstract class BlockFallable extends BlockSolid {
 
-    protected BlockFallable() {};
+    protected BlockFallable() {
+    }
 
     public int onUpdate(int type) {
         if (type == Level.BLOCK_UPDATE_NORMAL) {
             Block down = this.down();
-            if (down.getId() == AIR || down instanceof BlockLiquid) {
+            if (down.getId() == AIR || down instanceof BlockLiquid || down instanceof BlockFire) {
+                BlockFallEvent event = new BlockFallEvent(this);
+                this.level.getServer().getPluginManager().callEvent(event);
+                if (event.isCancelled()) {
+                    return type;
+                }
+
                 this.level.setBlock(this, Block.get(Block.AIR), true, true);
                 CompoundTag nbt = new CompoundTag()
                         .putList(new ListTag<DoubleTag>("Pos")
@@ -37,9 +46,11 @@ public abstract class BlockFallable extends BlockSolid {
                         .putInt("TileID", this.getId())
                         .putByte("Data", this.getDamage());
 
-                EntityFallingBlock fall = new EntityFallingBlock(this.getLevel().getChunk((int) this.x >> 4, (int) this.z >> 4), nbt);
+                EntityFallingBlock fall = (EntityFallingBlock) Entity.createEntity("FallingSand", this.getLevel().getChunk((int) this.x >> 4, (int) this.z >> 4), nbt);
 
-                fall.spawnToAll();
+                if (fall != null) {
+                    fall.spawnToAll();
+                }
             }
         }
         return type;

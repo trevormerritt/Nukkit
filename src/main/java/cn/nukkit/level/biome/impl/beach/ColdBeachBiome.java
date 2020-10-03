@@ -13,8 +13,8 @@ public class ColdBeachBiome extends SandyBiome {
     }
 
     @Override
-    public int getCoverBlock() {
-        return SNOW_LAYER;
+    public int getCoverId(int x, int z) {
+        return SNOW_LAYER << 4;
     }
 
     @Override
@@ -25,5 +25,10 @@ public class ColdBeachBiome extends SandyBiome {
     @Override
     public boolean isFreezing() {
         return true;
+    }
+
+    @Override
+    public boolean canRain() {
+        return false;
     }
 }

@@ -4,6 +4,7 @@ import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemBlock;
 import cn.nukkit.item.ItemTool;
 import cn.nukkit.math.NukkitRandom;
+import cn.nukkit.utils.BlockColor;
 
 /**
  * Created by Pub4Game on 28.01.2016.
@@ -47,10 +48,20 @@ public class BlockHugeMushroomRed extends BlockSolidMeta {
     public Item[] getDrops(Item item) {
         if (new NukkitRandom().nextRange(1, 20) == 0) {
             return new Item[]{
-                    new ItemBlock(new BlockMushroomRed())
+                    new ItemBlock(Block.get(BlockID.RED_MUSHROOM))
             };
         } else {
             return new Item[0];
         }
+    }
+
+    @Override
+    public boolean canSilkTouch() {
+        return true;
+    }
+
+    @Override
+    public BlockColor getColor() {
+        return BlockColor.RED_BLOCK_COLOR;
     }
 }

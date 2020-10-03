@@ -74,11 +74,15 @@ public class BlockTrappedChest extends BlockChest {
             }
         }
 
-        BlockEntity blockEntity = new BlockEntityChest(this.getLevel().getChunk((int) (this.x) >> 4, (int) (this.z) >> 4), nbt);
+        BlockEntityChest blockEntity = (BlockEntityChest) BlockEntity.createBlockEntity(BlockEntity.CHEST, this.getLevel().getChunk((int) (this.x) >> 4, (int) (this.z) >> 4), nbt);
+
+        if (blockEntity == null) {
+            return false;
+        }
 
         if (chest != null) {
-            chest.pairWith(((BlockEntityChest) blockEntity));
-            ((BlockEntityChest) blockEntity).pairWith(chest);
+            chest.pairWith(blockEntity);
+            blockEntity.pairWith(chest);
         }
 
         return true;
@@ -94,7 +98,7 @@ public class BlockTrappedChest extends BlockChest {
             playerCount = ((BlockEntityChest) blockEntity).getInventory().getViewers().size();
         }
 
-        return playerCount < 0 ? 0 : playerCount > 15 ? 15 : playerCount;
+        return Math.min(playerCount, 15);
     }
 
     @Override

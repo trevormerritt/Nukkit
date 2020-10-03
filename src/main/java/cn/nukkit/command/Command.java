@@ -60,7 +60,7 @@ public abstract class Command {
 
     public Command(String name, String description, String usageMessage, String[] aliases) {
         this.commandData = new CommandData();
-        this.name = name;
+        this.name = name.toLowerCase(); // Uppercase letters crash the client?!?
         this.nextLabel = name;
         this.label = name;
         this.description = description;
@@ -68,7 +68,7 @@ public abstract class Command {
         this.aliases = aliases;
         this.activeAliases = aliases;
         this.timing = Timings.getCommandTiming(this);
-        this.commandParameters.put("default", new CommandParameter[]{new CommandParameter("args", "rawtext", true)});
+        this.commandParameters.put("default", new CommandParameter[]{new CommandParameter("args", CommandParamType.RAWTEXT, true)});
     }
 
     /**
@@ -100,6 +100,7 @@ public abstract class Command {
      * Generates modified command data for the specified player
      * for AvailableCommandsPacket.
      *
+     * @param player player
      * @return CommandData|null
      */
     public CommandDataVersions generateCustomCommandData(Player player) {
@@ -110,7 +111,7 @@ public abstract class Command {
         CommandData customData = this.commandData.clone();
 
         if (getAliases().length > 0) {
-            List<String> aliases = new ArrayList(Arrays.asList(getAliases()));
+            List<String> aliases = new ArrayList<>(Arrays.asList(getAliases()));
             if (!aliases.contains(this.name)) {
                 aliases.add(this.name);
             }
@@ -252,7 +253,7 @@ public abstract class Command {
         this.usageMessage = usageMessage;
     }
 
-    public static final CommandData generateDefaultData() {
+    public static CommandData generateDefaultData() {
         if (defaultDataTemplate == null) {
             //defaultDataTemplate = new Gson().fromJson(new InputStreamReader(Server.class.getClassLoader().getResourceAsStream("command_default.json")));
         }
@@ -266,9 +267,9 @@ public abstract class Command {
     public static void broadcastCommandMessage(CommandSender source, String message, boolean sendToSource) {
         Set<Permissible> users = source.getServer().getPluginManager().getPermissionSubscriptions(Server.BROADCAST_CHANNEL_ADMINISTRATIVE);
 
-        TranslationContainer result = new TranslationContainer("chat.type.admin", new String[]{source.getName(), message});
+        TranslationContainer result = new TranslationContainer("chat.type.admin", source.getName(), message);
 
-        TranslationContainer colored = new TranslationContainer(TextFormat.GRAY + "" + TextFormat.ITALIC + "%chat.type.admin", new String[]{source.getName(), message});
+        TranslationContainer colored = new TranslationContainer(TextFormat.GRAY + "" + TextFormat.ITALIC + "%chat.type.admin", source.getName(), message);
 
         if (sendToSource && !(source instanceof ConsoleCommandSender)) {
             source.sendMessage(message);

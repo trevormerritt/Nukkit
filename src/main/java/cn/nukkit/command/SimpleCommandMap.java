@@ -8,15 +8,11 @@ import cn.nukkit.lang.TranslationContainer;
 import cn.nukkit.utils.MainLogger;
 import cn.nukkit.utils.TextFormat;
 import cn.nukkit.utils.Utils;
-import com.google.common.collect.Sets;
 
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.Map.Entry;
-import java.util.function.Function;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * author: MagicDroidX
@@ -111,7 +107,7 @@ public class SimpleCommandMap implements CommandMap {
                 iterator.remove();
             }
         }
-        command.setAliases(aliases.stream().toArray(String[]::new));
+        command.setAliases(aliases.toArray(new String[0]));
 
         if (!registered) {
             command.setLabel(fallbackPrefix + ":" + label);
@@ -187,7 +183,7 @@ public class SimpleCommandMap implements CommandMap {
         }
 
         // Then we need to check if there isn't any command conflicts with vanilla commands
-        ArrayList<String> toRemove = new ArrayList<String>();
+        ArrayList<String> toRemove = new ArrayList<>();
 
         for (Entry<String, Command> entry : knownCommands.entrySet()) {
             Command cmd = entry.getValue();
@@ -249,7 +245,7 @@ public class SimpleCommandMap implements CommandMap {
         }
 
         String sentCommandLabel = parsed.remove(0).toLowerCase();
-        String[] args = parsed.toArray(new String[parsed.size()]);
+        String[] args = parsed.toArray(new String[0]);
         Command target = this.getCommand(sentCommandLabel);
 
         if (target == null) {
@@ -304,7 +300,7 @@ public class SimpleCommandMap implements CommandMap {
             }
             List<String> targets = new ArrayList<>();
 
-            String bad = "";
+            StringBuilder bad = new StringBuilder();
 
             for (String commandString : commandStrings) {
                 String[] args = commandString.split(" ");
@@ -312,16 +308,16 @@ public class SimpleCommandMap implements CommandMap {
 
                 if (command == null) {
                     if (bad.length() > 0) {
-                        bad += ", ";
+                        bad.append(", ");
                     }
-                    bad += commandString;
+                    bad.append(commandString);
                 } else {
                     targets.add(commandString);
                 }
             }
 
             if (bad.length() > 0) {
-                this.server.getLogger().warning(this.server.getLanguage().translateString("nukkit.command.alias.notFound", new String[]{alias, bad}));
+                this.server.getLogger().warning(this.server.getLanguage().translateString("nukkit.command.alias.notFound", new String[]{alias, bad.toString()}));
                 continue;
             }
 

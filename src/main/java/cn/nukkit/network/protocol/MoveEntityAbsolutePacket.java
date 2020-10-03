@@ -1,11 +1,13 @@
 package cn.nukkit.network.protocol;
 
 import cn.nukkit.math.Vector3f;
+import lombok.ToString;
 
 /**
  * author: MagicDroidX
  * Nukkit Project
  */
+@ToString
 public class MoveEntityAbsolutePacket extends DataPacket {
     public static final byte NETWORK_ID = ProtocolInfo.MOVE_ENTITY_ABSOLUTE_PACKET;
 
@@ -44,10 +46,10 @@ public class MoveEntityAbsolutePacket extends DataPacket {
         this.reset();
         this.putEntityRuntimeId(this.eid);
         byte flags = 0;
-        if (teleport) {
+        if (onGround) {
             flags |= 0x01;
         }
-        if (onGround) {
+        if (teleport) {
             flags |= 0x02;
         }
         this.putByte(flags);

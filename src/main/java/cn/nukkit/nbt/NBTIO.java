@@ -1,10 +1,14 @@
 package cn.nukkit.nbt;
 
 import cn.nukkit.item.Item;
-import cn.nukkit.nbt.stream.*;
+import cn.nukkit.nbt.stream.FastByteArrayOutputStream;
+import cn.nukkit.nbt.stream.NBTInputStream;
+import cn.nukkit.nbt.stream.NBTOutputStream;
+import cn.nukkit.nbt.stream.PGZIPOutputStream;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.Tag;
 import cn.nukkit.utils.ThreadCache;
+
 import java.io.*;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
@@ -14,11 +18,11 @@ import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
 
+/**
+ * A Named Binary Tag library for Nukkit Project
+ */
 public class NBTIO {
 
-    /**
-     * A Named Binary Tag library for Nukkit Project
-     */
     public static CompoundTag putItemHelper(Item item) {
         return putItemHelper(item, null);
     }
@@ -53,8 +57,9 @@ public class NBTIO {
             item.setCount(tag.getByte("Count"));
         }
 
-        if (tag.contains("tag") && tag.get("tag") instanceof CompoundTag) {
-            item.setNamedTag(tag.getCompound("tag"));
+        Tag tagTag = tag.get("tag");
+        if (tagTag instanceof CompoundTag) {
+            item.setNamedTag((CompoundTag) tagTag);
         }
 
         return item;
@@ -84,6 +89,12 @@ public class NBTIO {
                 return (CompoundTag) tag;
             }
             throw new IOException("Root tag must be a named compound tag");
+        }
+    }
+
+    public static Tag readTag(InputStream inputStream, ByteOrder endianness, boolean network) throws IOException {
+        try (NBTInputStream stream = new NBTInputStream(inputStream, endianness, network)) {
+            return Tag.readNamedTag(stream);
         }
     }
 
@@ -140,6 +151,10 @@ public class NBTIO {
     }
 
     public static byte[] write(CompoundTag tag, ByteOrder endianness, boolean network) throws IOException {
+        return write((Tag) tag, endianness, network);
+    }
+
+    public static byte[] write(Tag tag, ByteOrder endianness, boolean network) throws IOException {
         FastByteArrayOutputStream baos = ThreadCache.fbaos.get().reset();
         try (NBTOutputStream stream = new NBTOutputStream(baos, endianness, network)) {
             Tag.writeNamedTag(tag, stream);
@@ -185,6 +200,14 @@ public class NBTIO {
         try (NBTOutputStream stream = new NBTOutputStream(outputStream, endianness, network)) {
             Tag.writeNamedTag(tag, stream);
         }
+    }
+
+    public static byte[] writeNetwork(Tag tag) throws IOException {
+        FastByteArrayOutputStream baos = ThreadCache.fbaos.get().reset();
+        try (NBTOutputStream stream = new NBTOutputStream(baos, ByteOrder.LITTLE_ENDIAN, true)) {
+            Tag.writeNamedTag(tag, stream);
+        }
+        return baos.toByteArray();
     }
 
     public static byte[] writeGZIPCompressed(CompoundTag tag) throws IOException {

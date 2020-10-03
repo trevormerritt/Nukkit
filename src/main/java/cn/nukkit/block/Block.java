@@ -78,7 +78,7 @@ public abstract class Block extends Position implements Metadatable, Cloneable, 
             list[GLASS] = BlockGlass.class; //20
             list[LAPIS_ORE] = BlockOreLapis.class; //21
             list[LAPIS_BLOCK] = BlockLapis.class; //22
-            //TODO: list[DISPENSER] = BlockDispenser.class; //23
+            list[DISPENSER] = BlockDispenser.class; //23
             list[SANDSTONE] = BlockSandstone.class; //24
             list[NOTEBLOCK] = BlockNoteblock.class; //25
             list[BED_BLOCK] = BlockBed.class; //26
@@ -231,7 +231,8 @@ public abstract class Block extends Position implements Metadatable, Cloneable, 
             list[COAL_BLOCK] = BlockCoal.class; //173
             list[PACKED_ICE] = BlockIcePacked.class; //174
             list[DOUBLE_PLANT] = BlockDoublePlant.class; //175
-
+            list[STANDING_BANNER] = BlockBanner.class; //176
+            list[WALL_BANNER] = BlockWallBanner.class; //177
             list[DAYLIGHT_DETECTOR_INVERTED] = BlockDaylightDetectorInverted.class; //178
             list[RED_SANDSTONE] = BlockRedSandstone.class; //179
             list[RED_SANDSTONE_STAIRS] = BlockStairsRedSandstone.class; //180
@@ -254,7 +255,8 @@ public abstract class Block extends Position implements Metadatable, Cloneable, 
             list[PURPUR_BLOCK] = BlockPurpur.class; //201
 
             list[PURPUR_STAIRS] = BlockStairsPurpur.class; //203
-
+            
+            list[UNDYED_SHULKER_BOX] = BlockUndyedShulkerBox.class; //205
             list[END_BRICKS] = BlockBricksEndStone.class; //206
 
             list[END_ROD] = BlockEndRod.class; //208
@@ -290,12 +292,13 @@ public abstract class Block extends Position implements Metadatable, Cloneable, 
             list[STAINED_GLASS] = BlockGlassStained.class; //241
             list[PODZOL] = BlockPodzol.class; //243
             list[BEETROOT_BLOCK] = BlockBeetroot.class; //244
+            list[STONECUTTER] = BlockStonecutter.class; //245
             list[GLOWING_OBSIDIAN] = BlockObsidianGlowing.class; //246
-            //TODO: list[NETHER_REACTOR] = BlockNetherReactor.class; //247 Should not be removed
+            //list[NETHER_REACTOR] = BlockNetherReactor.class; //247 Should not be removed
 
             //TODO: list[PISTON_EXTENSION] = BlockPistonExtension.class; //250
 
-            //TODO: list[OBSERVER] = BlockObserver.class; //251
+            list[OBSERVER] = BlockObserver.class; //251
 
             for (int id = 0; id < 256; id++) {
                 Class c = list[id];
@@ -363,7 +366,6 @@ public abstract class Block extends Position implements Metadatable, Cloneable, 
         }
     }
 
-    @SuppressWarnings("unchecked")
     public static Block get(int id, Integer meta, Position pos) {
         Block block = fullList[(id << 4) | (meta == null ? 0 : meta)].clone();
         if (pos != null) {
@@ -388,10 +390,6 @@ public abstract class Block extends Position implements Metadatable, Cloneable, 
         return block;
     }
 
-    public boolean place(Item item, Block block, Block target, BlockFace face, double fx, double fy, double fz) {
-        return this.place(item, block, target, face, fx, fy, fz, null);
-    }
-
     public boolean place(Item item, Block block, Block target, BlockFace face, double fx, double fy, double fz, Player player) {
         return this.getLevel().setBlock(this, this, true, true);
     }
@@ -410,7 +408,7 @@ public abstract class Block extends Position implements Metadatable, Cloneable, 
     }
 
     public boolean onBreak(Item item) {
-        return this.getLevel().setBlock(this, new BlockAir(), true, true);
+        return this.getLevel().setBlock(this, Block.get(BlockID.AIR), true, true);
     }
 
     public int onUpdate(int type) {
@@ -511,7 +509,7 @@ public abstract class Block extends Position implements Metadatable, Cloneable, 
 
     /**
      * The full id is a combination of the id and data.
-     * @return
+     * @return full id
      */
     public int getFullId() {
         return (getId() << 4);
@@ -617,6 +615,11 @@ public abstract class Block extends Position implements Metadatable, Cloneable, 
         Objects.requireNonNull(item, "getBreakTime: Item can not be null");
         Objects.requireNonNull(player, "getBreakTime: Player can not be null");
         double blockHardness = getHardness();
+
+        if (blockHardness == 0) {
+            return 0;
+        }
+
         boolean correctTool = correctTool0(getToolType(), item);
         boolean canHarvestWithHand = canHarvestWithHand();
         int blockId = getId();
@@ -636,6 +639,8 @@ public abstract class Block extends Position implements Metadatable, Cloneable, 
 
     /**
      * @deprecated This function is lack of Player class and is not accurate enough, use #getBreakTime(Item, Player)
+     * @param item item used
+     * @return break time
      */
     @Deprecated
     public double getBreakTime(Item item) {
@@ -900,7 +905,7 @@ public abstract class Block extends Position implements Metadatable, Cloneable, 
 
     public String getSaveId() {
         String name = getClass().getName();
-        return name.substring(16, name.length());
+        return name.substring(16);
     }
 
     @Override
@@ -969,5 +974,9 @@ public abstract class Block extends Position implements Metadatable, Cloneable, 
 
     public Item toItem() {
         return new ItemBlock(this, this.getDamage(), 1);
+    }
+
+    public boolean canSilkTouch() {
+        return false;
     }
 }

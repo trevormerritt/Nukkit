@@ -1,23 +1,19 @@
 package cn.nukkit.entity.item;
 
-import cn.nukkit.Player;
 import cn.nukkit.Server;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.entity.data.ByteEntityData;
 import cn.nukkit.entity.data.IntEntityData;
-import cn.nukkit.entity.data.SlotEntityData;
+import cn.nukkit.entity.data.NBTEntityData;
 import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.event.entity.EntityDamageEvent.DamageCause;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemFirework;
-import cn.nukkit.level.Sound;
 import cn.nukkit.level.format.FullChunk;
 import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.tag.CompoundTag;
-import cn.nukkit.network.protocol.AddEntityPacket;
 import cn.nukkit.network.protocol.EntityEventPacket;
 import cn.nukkit.network.protocol.LevelSoundEventPacket;
-import cn.nukkit.network.protocol.PlaySoundPacket;
 
 import java.util.Random;
 
@@ -49,7 +45,7 @@ public class EntityFirework extends Entity {
             firework = new ItemFirework();
         }
 
-        this.setDataProperty(new SlotEntityData(Entity.DATA_DISPLAY_ITEM, firework));
+        this.setDataProperty(new NBTEntityData(Entity.DATA_DISPLAY_ITEM, firework.getNamedTag()));
         this.setDataProperty(new IntEntityData(Entity.DATA_DISPLAY_OFFSET, 1));
         this.setDataProperty(new ByteEntityData(Entity.DATA_HAS_DISPLAY, 1));
     }
@@ -91,19 +87,11 @@ public class EntityFirework extends Entity {
             float f = (float) Math.sqrt(this.motionX * this.motionX + this.motionZ * this.motionZ);
             this.yaw = (float) (Math.atan2(this.motionX, this.motionZ) * (180D / Math.PI));
 
-            this.pitch = (float) (Math.atan2(this.motionY, (double) f) * (180D / Math.PI));
+            this.pitch = (float) (Math.atan2(this.motionY, f) * (180D / Math.PI));
 
 
             if (this.fireworkAge == 0) {
-                PlaySoundPacket pk = new PlaySoundPacket();
-                pk.name = Sound.FIREWORK_LAUNCH.getSound();
-                pk.volume = 1;
-                pk.pitch = 1;
-                pk.x = getFloorX();
-                pk.y = getFloorY();
-                pk.z = getFloorZ();
-
-                this.level.addChunkPacket(this.getFloorX() >> 4, this.getFloorZ() >> 4, pk);
+                this.getLevel().addLevelSoundEvent(this, LevelSoundEventPacket.SOUND_LAUNCH);
             }
 
             this.fireworkAge++;
@@ -115,16 +103,9 @@ public class EntityFirework extends Entity {
                 pk.event = EntityEventPacket.FIREWORK_EXPLOSION;
                 pk.eid = this.getId();
 
-                LevelSoundEventPacket pk2 = new LevelSoundEventPacket();
-                pk2.sound = LevelSoundEventPacket.SOUND_LARGE_BLAST;
-                pk2.extraData = -1;
-                pk2.pitch = -1;
-                pk2.x = (float) getX();
-                pk2.y = (float) getY();
-                pk2.z = (float) getZ();
+                level.addLevelSoundEvent(this, LevelSoundEventPacket.SOUND_LARGE_BLAST, -1, NETWORK_ID);
 
                 Server.broadcastPacket(getViewers().values(), pk);
-                this.level.addChunkPacket(this.getFloorX() >> 4, this.getFloorZ() >> 4, pk2);
 
                 this.kill();
                 hasUpdate = true;
@@ -147,25 +128,7 @@ public class EntityFirework extends Entity {
 
     public void setFirework(Item item) {
         this.firework = item;
-        this.setDataProperty(new SlotEntityData(Entity.DATA_DISPLAY_ITEM, item));
-    }
-
-    @Override
-    public void spawnTo(Player player) {
-        super.spawnTo(player);
-
-        AddEntityPacket pk = new AddEntityPacket();
-        pk.type = NETWORK_ID;
-        pk.entityUniqueId = this.getId();
-        pk.entityRuntimeId = this.getId();
-        pk.x = (float) this.x;
-        pk.y = (float) this.y;
-        pk.z = (float) this.z;
-        pk.speedX = (float) this.motionX;
-        pk.speedY = (float) this.motionY;
-        pk.speedZ = (float) this.motionZ;
-        pk.metadata = this.dataProperties;
-        player.dataPacket(pk);
+        this.setDataProperty(new NBTEntityData(Entity.DATA_DISPLAY_ITEM, item.getNamedTag()));
     }
 
     @Override

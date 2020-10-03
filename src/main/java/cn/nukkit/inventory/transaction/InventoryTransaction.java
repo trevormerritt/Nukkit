@@ -4,14 +4,11 @@ import cn.nukkit.Player;
 import cn.nukkit.event.inventory.InventoryClickEvent;
 import cn.nukkit.event.inventory.InventoryTransactionEvent;
 import cn.nukkit.inventory.Inventory;
-import cn.nukkit.inventory.PlayerInventory;
 import cn.nukkit.inventory.transaction.action.InventoryAction;
 import cn.nukkit.inventory.transaction.action.SlotChangeAction;
 import cn.nukkit.item.Item;
-import cn.nukkit.utils.MainLogger;
 
 import java.util.*;
-import java.util.Map.Entry;
 
 /**
  * @author CreeperFace
@@ -25,7 +22,7 @@ public class InventoryTransaction {
 
     protected Set<Inventory> inventories = new HashSet<>();
 
-    protected Set<InventoryAction> actions = new HashSet<>();
+    protected List<InventoryAction> actions = new ArrayList<>();
 
     public InventoryTransaction(Player source, List<InventoryAction> actions) {
         this(source, actions, true);
@@ -58,27 +55,56 @@ public class InventoryTransaction {
         return inventories;
     }
 
-    public Set<InventoryAction> getActions() {
+    public List<InventoryAction> getActionList() {
         return actions;
     }
 
+    public Set<InventoryAction> getActions() {
+        return new HashSet<>(actions);
+    }
+
     public void addAction(InventoryAction action) {
-        if (!this.actions.contains(action)) {
-            this.actions.add(action);
-            action.onAddToTransaction(this);
-        } else {
-            throw new RuntimeException("Tried to add the same action to a transaction twice");
+        if (action instanceof SlotChangeAction) {
+            SlotChangeAction slotChangeAction = (SlotChangeAction) action;
+
+            ListIterator<InventoryAction> iterator = this.actions.listIterator();
+
+            while (iterator.hasNext()) {
+                InventoryAction existingAction = iterator.next();
+                if (existingAction instanceof SlotChangeAction) {
+                    SlotChangeAction existingSlotChangeAction = (SlotChangeAction) existingAction;
+                    if (!existingSlotChangeAction.getInventory().equals(slotChangeAction.getInventory()))
+                        continue;
+                    Item existingSource = existingSlotChangeAction.getSourceItem();
+                    Item existingTarget = existingSlotChangeAction.getTargetItem();
+                    if (existingSlotChangeAction.getSlot() == slotChangeAction.getSlot()
+                            && slotChangeAction.getSourceItem().equals(existingTarget, existingTarget.hasMeta(), existingTarget.hasCompoundTag())) {
+                        iterator.set(new SlotChangeAction(existingSlotChangeAction.getInventory(), existingSlotChangeAction.getSlot(), existingSlotChangeAction.getSourceItem(), slotChangeAction.getTargetItem()));
+                        action.onAddToTransaction(this);
+                        return;
+                    } else if (existingSlotChangeAction.getSlot() == slotChangeAction.getSlot()
+                            && slotChangeAction.getSourceItem().equals(existingSource, existingSource.hasMeta(), existingSource.hasCompoundTag())
+                            && slotChangeAction.getTargetItem().equals(existingTarget, existingTarget.hasMeta(), existingTarget.hasCompoundTag())) {
+                        existingSource.setCount(existingSource.getCount() + slotChangeAction.getSourceItem().getCount());
+                        existingTarget.setCount(existingTarget.getCount() + slotChangeAction.getTargetItem().getCount());
+                        iterator.set(new SlotChangeAction(existingSlotChangeAction.getInventory(), existingSlotChangeAction.getSlot(), existingSource, existingTarget));
+                        return;
+                    }
+                }
+            }
         }
+        this.actions.add(action);
+        action.onAddToTransaction(this);
     }
 
     /**
      * This method should not be used by plugins, it's used to add tracked inventories for InventoryActions
      * involving inventories.
+     *
+     * @param inventory to add
      */
     public void addInventory(Inventory inventory) {
-        if (!this.inventories.contains(inventory)) {
-            this.inventories.add(inventory);
-        }
+        this.inventories.add(inventory);
     }
 
     protected boolean matchItems(List<Item> needItems, List<Item> haveItems) {
@@ -117,114 +143,16 @@ public class InventoryTransaction {
     }
 
     protected void sendInventories() {
-        for (Inventory inventory : this.inventories) {
-            inventory.sendContents(this.source);
-            if (inventory instanceof PlayerInventory) {
-                ((PlayerInventory) inventory).sendArmorContents(this.source);
-            }
-        }
-    }
-
-    /**
-     * Iterates over SlotChangeActions in this transaction and compacts any which refer to the same inventorySlot in the same
-     * inventory so they can be correctly handled.
-     * <p>
-     * Under normal circumstances, the same inventorySlot would never be changed more than once in a single transaction. However,
-     * due to the way things like the crafting grid are "implemented" in MCPE 1.2 (a.k.a. hacked-in), we may get
-     * multiple inventorySlot changes referring to the same inventorySlot in a single transaction. These multiples are not even guaranteed
-     * to be in the correct order (inventorySlot splitting in the crafting grid for example, causes the actions to be sent in the
-     * wrong order), so this method also tries to chain them into order.
-     *
-     * @return bool
-     */
-    protected boolean squashDuplicateSlotChanges() {
-        Map<Integer, List<SlotChangeAction>> slotChanges = new HashMap<>();
-
         for (InventoryAction action : this.actions) {
             if (action instanceof SlotChangeAction) {
-                int hash = Objects.hash(((SlotChangeAction) action).getInventory(), ((SlotChangeAction) action).getSlot());
+                SlotChangeAction sca = (SlotChangeAction) action;
 
-                List<SlotChangeAction> list = slotChanges.get(hash);
-                if (list == null) {
-                    list = new ArrayList<>();
-                }
-
-                list.add((SlotChangeAction) action);
-
-                slotChanges.put(hash, list);
+                sca.getInventory().sendSlot(sca.getSlot(), this.source);
             }
         }
-
-        for (Entry<Integer, List<SlotChangeAction>> entry : new ArrayList<>(slotChanges.entrySet())) {
-            int hash = entry.getKey();
-            List<SlotChangeAction> list = entry.getValue();
-
-            if (list.size() == 1) { //No need to compact inventorySlot changes if there is only one on this inventorySlot
-                slotChanges.remove(hash);
-                continue;
-            }
-
-            List<SlotChangeAction> originalList = new ArrayList<>(list);
-
-            SlotChangeAction originalAction = null;
-            Item lastTargetItem = null;
-
-            for (int i = 0; i < list.size(); i++) {
-                SlotChangeAction action = list.get(i);
-
-                if (action.isValid(this.source)) {
-                    originalAction = action;
-                    lastTargetItem = action.getTargetItem();
-                    list.remove(i);
-                    break;
-                }
-            }
-
-            if (originalAction == null) {
-                return false; //Couldn't find any actions that had a source-item matching the current inventory inventorySlot
-            }
-
-            int sortedThisLoop;
-
-            do {
-                sortedThisLoop = 0;
-                for (int i = 0; i < list.size(); i++) {
-                    SlotChangeAction action = list.get(i);
-
-                    Item actionSource = action.getSourceItem();
-                    if (actionSource.equalsExact(lastTargetItem)) {
-                        lastTargetItem = action.getTargetItem();
-                        list.remove(i);
-                        sortedThisLoop++;
-                    }
-                    else if (actionSource.equals(lastTargetItem)) {
-                        lastTargetItem.count -= actionSource.count;
-                        list.remove(i);
-                        if (lastTargetItem.count == 0) sortedThisLoop++;
-                    }
-                }
-            } while (sortedThisLoop > 0);
-
-            if (list.size() > 0) { //couldn't chain all the actions together
-                MainLogger.getLogger().debug("Failed to compact " + originalList.size() + " actions for " + this.source.getName());
-                return false;
-            }
-
-            for (SlotChangeAction action : originalList) {
-                this.actions.remove(action);
-            }
-
-            this.addAction(new SlotChangeAction(originalAction.getInventory(), originalAction.getSlot(), originalAction.getSourceItem(), lastTargetItem));
-
-            MainLogger.getLogger().debug("Successfully compacted " + originalList.size() + " actions for " + this.source.getName());
-        }
-
-        return true;
     }
 
     public boolean canExecute() {
-        this.squashDuplicateSlotChanges();
-
         List<Item> haveItems = new ArrayList<>();
         List<Item> needItems = new ArrayList<>();
         return matchItems(needItems, haveItems) && this.actions.size() > 0 && haveItems.size() == 0 && needItems.size() == 0;
@@ -244,7 +172,7 @@ public class InventoryTransaction {
             }
             SlotChangeAction slotChange = (SlotChangeAction) action;
 
-            if (slotChange.getInventory() instanceof PlayerInventory) {
+            if (slotChange.getInventory().getHolder() instanceof Player) {
                 who = (Player) slotChange.getInventory().getHolder();
             }
 

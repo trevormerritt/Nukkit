@@ -88,6 +88,11 @@ public final class ClientChainData implements LoginChainData {
     }
 
     @Override
+    public String getDeviceId() {
+        return deviceId;
+    }
+
+    @Override
     public String getGameVersion() {
         return gameVersion;
     }
@@ -132,6 +137,11 @@ public final class ClientChainData implements LoginChainData {
         return UIProfile;
     }
 
+    @Override
+    public JsonObject getRawData() {
+        return rawData;
+    }
+
     ///////////////////////////////////////////////////////////////////////////
     // Override
     ///////////////////////////////////////////////////////////////////////////
@@ -163,6 +173,7 @@ public final class ClientChainData implements LoginChainData {
     private String serverAddress;
     private String deviceModel;
     private int deviceOS;
+    private String deviceId;
     private String gameVersion;
     private int guiScale;
     private String languageCode;
@@ -172,6 +183,8 @@ public final class ClientChainData implements LoginChainData {
     private int UIProfile;
 
     private String capeData;
+
+    private JsonObject rawData;
 
     private BinaryStream bs = new BinaryStream();
 
@@ -193,6 +206,7 @@ public final class ClientChainData implements LoginChainData {
         if (skinToken.has("ServerAddress")) this.serverAddress = skinToken.get("ServerAddress").getAsString();
         if (skinToken.has("DeviceModel")) this.deviceModel = skinToken.get("DeviceModel").getAsString();
         if (skinToken.has("DeviceOS")) this.deviceOS = skinToken.get("DeviceOS").getAsInt();
+        if (skinToken.has("DeviceId")) this.deviceId = skinToken.get("DeviceId").getAsString();
         if (skinToken.has("GameVersion")) this.gameVersion = skinToken.get("GameVersion").getAsString();
         if (skinToken.has("GuiScale")) this.guiScale = skinToken.get("GuiScale").getAsInt();
         if (skinToken.has("LanguageCode")) this.languageCode = skinToken.get("LanguageCode").getAsString();
@@ -200,6 +214,8 @@ public final class ClientChainData implements LoginChainData {
         if (skinToken.has("DefaultInputMode")) this.defaultInputMode = skinToken.get("DefaultInputMode").getAsInt();
         if (skinToken.has("UIProfile")) this.UIProfile = skinToken.get("UIProfile").getAsInt();
         if (skinToken.has("CapeData")) this.capeData = skinToken.get("CapeData").getAsString();
+
+        this.rawData = skinToken;
     }
 
     private JsonObject decodeToken(String token) {

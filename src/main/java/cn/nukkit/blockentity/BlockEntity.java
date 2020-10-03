@@ -10,9 +10,10 @@ import cn.nukkit.utils.ChunkException;
 import cn.nukkit.utils.MainLogger;
 import co.aikar.timings.Timing;
 import co.aikar.timings.Timings;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
+
 import java.lang.reflect.Constructor;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * @author MagicDroidX
@@ -40,12 +41,12 @@ public abstract class BlockEntity extends Position {
     public static final String BED = "Bed";
     public static final String JUKEBOX = "Jukebox";
     public static final String SHULKER_BOX = "ShulkerBox";
+    public static final String BANNER = "Banner";
 
 
     public static long count = 1;
 
-    private static final Map<String, Class<? extends BlockEntity>> knownBlockEntities = new HashMap<>();
-    private static final Map<String, String> shortNames = new HashMap<>();
+    private static final BiMap<String, Class<? extends BlockEntity>> knownBlockEntities = HashBiMap.create(21);
 
     public FullChunk chunk;
     public String name;
@@ -135,14 +136,11 @@ public abstract class BlockEntity extends Position {
         }
 
         knownBlockEntities.put(name, c);
-        shortNames.put(c.getSimpleName(), name);
         return true;
     }
 
     public final String getSaveId() {
-        String simpleName = getClass().getName();
-        simpleName = simpleName.substring(22, simpleName.length());
-        return shortNames.getOrDefault(simpleName, "");
+        return knownBlockEntities.inverse().get(getClass());
     }
 
     public long getId() {
@@ -179,13 +177,12 @@ public abstract class BlockEntity extends Position {
     }
 
     public final void scheduleUpdate() {
-        this.level.updateBlockEntities.put(this.id, this);
+        this.level.scheduleBlockEntityUpdate(this);
     }
 
     public void close() {
         if (!this.closed) {
             this.closed = true;
-            this.level.updateBlockEntities.remove(this.id);
             if (this.chunk != null) {
                 this.chunk.removeBlockEntity(this);
             }
@@ -194,6 +191,14 @@ public abstract class BlockEntity extends Position {
             }
             this.level = null;
         }
+    }
+
+    public void onBreak() {
+
+    }
+
+    public void setDirty() {
+        chunk.setChanged();
     }
 
     public String getName() {

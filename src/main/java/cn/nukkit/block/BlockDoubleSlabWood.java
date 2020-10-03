@@ -1,6 +1,7 @@
 package cn.nukkit.block;
 
 import cn.nukkit.item.Item;
+import cn.nukkit.item.ItemBlock;
 import cn.nukkit.item.ItemTool;
 import cn.nukkit.utils.BlockColor;
 
@@ -53,6 +54,11 @@ public class BlockDoubleSlabWood extends BlockSolidMeta {
         return "Double " + names[this.getDamage() & 0x07] + " Slab";
     }
 
+    @Override
+    public Item toItem() {
+        return new ItemBlock(Block.get(BlockID.WOODEN_SLAB), this.getDamage() & 0x07);
+    }
+
     public Item[] getDrops(Item item) {
         return new Item[]{
                 Item.get(Item.WOOD_SLAB, this.getDamage() & 0x07, 2)
@@ -61,6 +67,20 @@ public class BlockDoubleSlabWood extends BlockSolidMeta {
 
     @Override
     public BlockColor getColor() {
-        return BlockColor.WOOD_BLOCK_COLOR;
+        switch(this.getDamage() & 0x07){
+            default:
+                case 0: //OAK
+                    return BlockColor.WOOD_BLOCK_COLOR;
+            case 1: //SPRUCE
+                return BlockColor.SPRUCE_BLOCK_COLOR;
+            case 2: //BIRCH
+                return BlockColor.SAND_BLOCK_COLOR;
+            case 3: //JUNGLE
+                return BlockColor.DIRT_BLOCK_COLOR;
+            case 4: //Acacia
+                return BlockColor.ORANGE_BLOCK_COLOR;
+            case 5: //DARK OAK
+                return BlockColor.BROWN_BLOCK_COLOR;
+        }
     }
 }

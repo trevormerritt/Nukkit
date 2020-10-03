@@ -3,14 +3,25 @@ package cn.nukkit.utils;
 import cn.nukkit.entity.Attribute;
 import cn.nukkit.entity.data.Skin;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.ItemDurable;
 import cn.nukkit.level.GameRule;
 import cn.nukkit.level.GameRules;
 import cn.nukkit.math.BlockFace;
 import cn.nukkit.math.BlockVector3;
 import cn.nukkit.math.Vector3f;
+import cn.nukkit.nbt.NBTIO;
+import cn.nukkit.nbt.tag.CompoundTag;
+import cn.nukkit.nbt.tag.ListTag;
+import cn.nukkit.nbt.tag.StringTag;
+import cn.nukkit.network.protocol.types.EntityLink;
+import it.unimi.dsi.fastutil.io.FastByteArrayInputStream;
 
+import java.io.IOException;
+import java.lang.reflect.Array;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.function.Function;
 
 /**
  * author: MagicDroidX
@@ -223,7 +234,7 @@ public class BinaryStream {
             }
         }
 
-        return list.stream().toArray(Attribute[]::new);
+        return list.toArray(new Attribute[0]);
     }
 
     /**
@@ -248,21 +259,115 @@ public class BinaryStream {
     }
 
     public void putSkin(Skin skin) {
-        this.putString(skin.getModel());
-        this.putByteArray(skin.getData());
-        this.putByteArray(skin.getCape().getData());
+        this.putString(skin.getSkinId());
+        this.putString(skin.getSkinResourcePatch());
+        this.putImage(skin.getSkinData());
+
+        List<SkinAnimation> animations = skin.getAnimations();
+        this.putLInt(animations.size());
+        for (SkinAnimation animation : animations) {
+            this.putImage(animation.image);
+            this.putLInt(animation.type);
+            this.putLFloat(animation.frames);
+        }
+
+        this.putImage(skin.getCapeData());
+        this.putString(skin.getGeometryData());
+        this.putString(skin.getAnimationData());
+        this.putBoolean(skin.isPremium());
+        this.putBoolean(skin.isPersona());
+        this.putBoolean(skin.isCapeOnClassic());
+        this.putString(skin.getCapeId());
+        this.putString(skin.getFullSkinId());
+        this.putString(skin.getArmSize());
+        this.putString(skin.getSkinColor());
+        List<PersonaPiece> pieces = skin.getPersonaPieces();
+        this.putLInt(pieces.size());
+        for (PersonaPiece piece : pieces) {
+            this.putString(piece.id);
+            this.putString(piece.type);
+            this.putString(piece.packId);
+            this.putBoolean(piece.isDefault);
+            this.putString(piece.productId);
+        }
+
+        List<PersonaPieceTint> tints = skin.getTintColors();
+        this.putLInt(tints.size());
+        for (PersonaPieceTint tint : tints) {
+            this.putString(tint.pieceType);
+            List<String> colors = tint.colors;
+            this.putLInt(colors.size());
+            for (String color : colors) {
+                this.putString(color);
+            }
+        }
     }
 
     public Skin getSkin() {
-        String modelId = this.getString();
-        byte[] skinData = this.getByteArray();
-        return new Skin(skinData, modelId);
+        Skin skin = new Skin();
+        skin.setSkinId(this.getString());
+        skin.setSkinResourcePatch(this.getString());
+        skin.setSkinData(this.getImage());
+
+        int animationCount = this.getLInt();
+        for (int i = 0; i < animationCount; i++) {
+            SerializedImage image = this.getImage();
+            int type = this.getLInt();
+            float frames = this.getLFloat();
+            skin.getAnimations().add(new SkinAnimation(image, type, frames));
+        }
+
+        skin.setCapeData(this.getImage());
+        skin.setGeometryData(this.getString());
+        skin.setAnimationData(this.getString());
+        skin.setPremium(this.getBoolean());
+        skin.setPersona(this.getBoolean());
+        skin.setCapeOnClassic(this.getBoolean());
+        skin.setCapeId(this.getString());
+        this.getString(); // TODO: Full skin id
+        skin.setArmSize(this.getString());
+        skin.setSkinColor(this.getString());
+
+        int piecesLength = this.getLInt();
+        for (int i = 0; i < piecesLength; i++) {
+            String pieceId = this.getString();
+            String pieceType = this.getString();
+            String packId = this.getString();
+            boolean isDefault = this.getBoolean();
+            String productId = this.getString();
+            skin.getPersonaPieces().add(new PersonaPiece(pieceId, pieceType, packId, isDefault, productId));
+        }
+
+        int tintsLength = this.getLInt();
+        for (int i = 0; i < tintsLength; i++) {
+            String pieceType = this.getString();
+            List<String> colors = new ArrayList<>();
+            int colorsLength = this.getLInt();
+            for (int i2 = 0; i2 < colorsLength; i2++) {
+                colors.add(this.getString());
+            }
+            skin.getTintColors().add(new PersonaPieceTint(pieceType, colors));
+        }
+        return skin;
+    }
+
+    public void putImage(SerializedImage image) {
+        this.putLInt(image.width);
+        this.putLInt(image.height);
+        this.putByteArray(image.data);
+    }
+
+    public SerializedImage getImage() {
+        int width = this.getLInt();
+        int height = this.getLInt();
+        byte[] data = this.getByteArray();
+        return new SerializedImage(width, height, data);
     }
 
     public Item getSlot() {
         int id = this.getVarInt();
 
-        if (id <= 0) {
+        if (id == 0) {
             return Item.get(0, 0, 0);
         }
         int auxValue = this.getVarInt();
@@ -274,29 +379,77 @@ public class BinaryStream {
 
         int nbtLen = this.getLShort();
         byte[] nbt = new byte[0];
-        if (nbtLen > 0) {
+        if (nbtLen < Short.MAX_VALUE) {
             nbt = this.get(nbtLen);
-        }
-
-        //TODO
-        int canPlaceOn = this.getVarInt();
-        if (canPlaceOn > 0) {
-            for (int i = 0; i < canPlaceOn; ++i) {
-                this.getString();
+        } else if (nbtLen == 65535) {
+            int nbtTagCount = (int) getUnsignedVarInt();
+            int offset = getOffset();
+            FastByteArrayInputStream stream = new FastByteArrayInputStream(get());
+            for (int i = 0; i < nbtTagCount; i++) {
+                try {
+                    // TODO: 05/02/2019 This hack is necessary because we keep the raw NBT tag. Try to remove it.
+                    CompoundTag tag = NBTIO.read(stream, ByteOrder.LITTLE_ENDIAN, true);
+                    // tool damage hack
+                    if (tag.contains("Damage")) {
+                        data = tag.getInt("Damage");
+                        tag.remove("Damage");
+                    }
+                    if (tag.contains("__DamageConflict__")) {
+                        tag.put("Damage", tag.removeAndGet("__DamageConflict__"));
+                    }
+                    if (tag.getAllTags().size() > 0) {
+                        nbt = NBTIO.write(tag, ByteOrder.LITTLE_ENDIAN, false);
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
             }
+            setOffset(offset + (int) stream.position());
         }
 
-        //TODO
-        int canDestroy = this.getVarInt();
-        if (canDestroy > 0) {
-            for (int i = 0; i < canDestroy; ++i) {
-                this.getString();
-            }
+        String[] canPlaceOn = new String[this.getVarInt()];
+        for (int i = 0; i < canPlaceOn.length; ++i) {
+            canPlaceOn[i] = this.getString();
         }
 
-        return Item.get(
+        String[] canDestroy = new String[this.getVarInt()];
+        for (int i = 0; i < canDestroy.length; ++i) {
+            canDestroy[i] = this.getString();
+        }
+
+        Item item = Item.get(
                 id, data, cnt, nbt
         );
+
+        if (canDestroy.length > 0 || canPlaceOn.length > 0) {
+            CompoundTag namedTag = item.getNamedTag();
+            if (namedTag == null) {
+                namedTag = new CompoundTag();
+            }
+
+            if (canDestroy.length > 0) {
+                ListTag<StringTag> listTag = new ListTag<>("CanDestroy");
+                for (String blockName : canDestroy) {
+                    listTag.add(new StringTag("", blockName));
+                }
+                namedTag.put("CanDestroy", listTag);
+            }
+
+            if (canPlaceOn.length > 0) {
+                ListTag<StringTag> listTag = new ListTag<>("CanPlaceOn");
+                for (String blockName : canPlaceOn) {
+                    listTag.add(new StringTag("", blockName));
+                }
+                namedTag.put("CanPlaceOn", listTag);
+            }
+            item.setNamedTag(namedTag);
+        }
+
+        if (item.getId() == 513) { // TODO: Shields
+            this.getVarLong();
+        }
+
+        return item;
     }
 
     public void putSlot(Item item) {
@@ -305,14 +458,109 @@ public class BinaryStream {
             return;
         }
 
+        boolean isDurable = item instanceof ItemDurable;
+
         this.putVarInt(item.getId());
-        int auxValue = (((item.hasMeta() ? item.getDamage() : -1) & 0x7fff) << 8) | item.getCount();
+
+        int auxValue = item.getCount();
+        if (!isDurable) {
+            auxValue |= (((item.hasMeta() ? item.getDamage() : -1) & 0x7fff) << 8);
+        }
         this.putVarInt(auxValue);
-        byte[] nbt = item.getCompoundTag();
-        this.putLShort(nbt.length);
-        this.put(nbt);
-        this.putVarInt(0); //TODO CanPlaceOn entry count
-        this.putVarInt(0); //TODO CanDestroy entry count
+
+        if (item.hasCompoundTag() || isDurable) {
+            try {
+                // hack for tool damage
+                byte[] nbt = item.getCompoundTag();
+                CompoundTag tag;
+                if (nbt == null || nbt.length == 0) {
+                    tag = new CompoundTag();
+                } else {
+                    tag = NBTIO.read(nbt, ByteOrder.LITTLE_ENDIAN, false);
+                }
+                if (tag.contains("Damage")) {
+                    tag.put("__DamageConflict__", tag.removeAndGet("Damage"));
+                }
+                if (isDurable) {
+                    tag.putInt("Damage", item.getDamage());
+                }
+
+                this.putLShort(0xffff);
+                this.putByte((byte) 1);
+                this.put(NBTIO.write(tag, ByteOrder.LITTLE_ENDIAN, true));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        } else {
+            this.putLShort(0);
+        }
+        List<String> canPlaceOn = extractStringList(item, "CanPlaceOn");
+        List<String> canDestroy = extractStringList(item, "CanDestroy");
+        this.putVarInt(canPlaceOn.size());
+        for (String block : canPlaceOn) {
+            this.putString(block);
+        }
+        this.putVarInt(canDestroy.size());
+        for (String block : canDestroy) {
+            this.putString(block);
+        }
+
+        if (item.getId() == 513) { // TODO: Shields
+            this.putVarLong(0);
+        }
+    }
+
+    public Item getRecipeIngredient() {
+        int id = this.getVarInt();
+
+        if (id == 0) {
+            return Item.get(0, 0, 0);
+        }
+
+        int damage = this.getVarInt();
+        if (damage == 0x7fff) damage = -1;
+        int count = this.getVarInt();
+
+        return Item.get(id, damage, count);
+    }
+
+    public void putRecipeIngredient(Item ingredient) {
+        if (ingredient == null || ingredient.getId() == 0) {
+            this.putVarInt(0);
+            return;
+        }
+        this.putVarInt(ingredient.getId());
+        int damage;
+        if (ingredient.hasMeta()) {
+            damage = ingredient.getDamage();
+        } else {
+            damage = 0x7fff;
+        }
+        this.putVarInt(damage);
+        this.putVarInt(ingredient.getCount());
+    }
+
+    private List<String> extractStringList(Item item, String tagName) {
+        CompoundTag namedTag = item.getNamedTag();
+        if (namedTag == null) {
+            return Collections.emptyList();
+        }
+
+        ListTag<StringTag> listTag = namedTag.getList(tagName, StringTag.class);
+        if (listTag == null) {
+            return Collections.emptyList();
+        }
+
+        int size = listTag.size();
+        List<String> values = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            StringTag stringTag = listTag.get(i);
+            if (stringTag != null) {
+                values.add(stringTag.data);
+            }
+        }
+
+        return values;
     }
 
     public byte[] getByteArray() {
@@ -448,6 +696,34 @@ public class BinaryStream {
 
     public void putBlockFace(BlockFace face) {
         this.putVarInt(face.getIndex());
+    }
+
+    public void putEntityLink(EntityLink link) {
+        putEntityUniqueId(link.fromEntityUniquieId);
+        putEntityUniqueId(link.toEntityUniquieId);
+        putByte(link.type);
+        putBoolean(link.immediate);
+        putBoolean(link.riderInitiated);
+    }
+
+    public EntityLink getEntityLink() {
+        return new EntityLink(
+                getEntityUniqueId(),
+                getEntityUniqueId(),
+                (byte) getByte(),
+                getBoolean(),
+                getBoolean()
+        );
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> T[] getArray(Class<T> clazz, Function<BinaryStream, T> function) {
+        ArrayDeque<T> deque = new ArrayDeque<>();
+        int count = (int) getUnsignedVarInt();
+        for (int i = 0; i < count; i++) {
+            deque.add(function.apply(this));
+        }
+        return deque.toArray((T[]) Array.newInstance(clazz, 0));
     }
 
     public boolean feof() {

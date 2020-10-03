@@ -1,6 +1,7 @@
 package cn.nukkit.block;
 
 import cn.nukkit.item.Item;
+import cn.nukkit.item.ItemBlock;
 import cn.nukkit.utils.BlockColor;
 
 /**
@@ -53,7 +54,12 @@ public class BlockEndGateway extends BlockSolid {
 
     @Override
     public BlockColor getColor() {
-        return BlockColor.AIR_BLOCK_COLOR;
+        return BlockColor.BLACK_BLOCK_COLOR;
+    }
+
+    @Override
+    public Item toItem() {
+        return new ItemBlock(Block.get(BlockID.AIR));
     }
 
 }
